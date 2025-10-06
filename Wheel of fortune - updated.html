@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ESL Wheel of Fortune</title>
+  
+  
+    <link rel="stylesheet" href="styles.css">
+  
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- Comprehensive fallback locations -->
+<script src="WoFquestions.js"></script>
+<script src="../WoFquestions.js"></script>
+<script src="../DATA/WoFquestions.js"></script>
+
+
+<script src="WoFsetupUI.js"></script>
+
+<script src="script.js"></script>
+
+  
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🎡 ESL Wheel of Fortune</div>
+    <div class="sub"></div>
+  </header>
+
+
+
+
+
+
+
+
+<div class="grid">
+  <!-- Wheel + Game Board side by side -->
+  <div class="wheel-and-game">
+    <!-- Wheel -->
+    <div class="wheel-column">
+      <div class="wheelBox">
+        <div class="pointer" title="Pointer"></div>
+        <svg id="wheel" class="wheel" viewBox="-220 -220 440 440" aria-label="spinning wheel"></svg>
+        <div style="margin-top:12px" class="row">
+          <button id="spinBtn" class="spinBtn">SPIN THE WHEEL</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Board -->
+    <section class="card" id="gameBoard">
+      <div class="row" style="justify-content:space-between; margin-bottom:4px">
+        <div class="seg">Category: <strong id="categoryOut">(none)</strong></div>
+        <div class="score" id="teams"></div>
+      </div>
+      <div class="card puzzle-container" style="padding:14px; margin:10px 0 6px">
+        <div id="puzzle" class="puzzle" aria-live="polite"></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="solveBtn">Solve</button>
+        <input id="solveInput" type="text" placeholder="Type full phrase to solve" class="grow" />
+        <button class="btn good" id="checkSolveBtn">Check</button>
+      </div>
+      <div class="hint" id="turnHint" style="margin-top:8px">Use controls below to start.</div>
+      <div id="keyboard" class="keyboard" style="margin-top:8px"></div>
+    </section>
+  </div>
+
+
+
+
+
+
+
+
+
+    <!-- Host Controls -->
+    <section class="card" id="host">
+      <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:10px">
+        <h3 style="margin:0">🎤 Host Controls</h3>
+        <button class="btn secondary" id="hideSettingsBtn">Hide Settings</button>
+      </div>
+      <div id="hostControls">
+
+
+
+
+
+
+	<!--NEW SECTION FOR ADDING AUTOMATIC QUESTION SETUP -->
+					<!-- Teams & Wheel Settings -->
+					<div class="hostGrid">
+					  <div>
+						<label class="small">Teams (comma‑separated)</label>
+						<input id="hostTeams" type="text" value="Red, Blue, Green" />
+					  </div>
+					  <div>
+						<label class="small">Wheel Segments (comma‑separated; use BANKRUPT, LOSE TURN, DOUBLE)</label>
+						<input id="hostSegments" type="text" value="100,200,300,400,500,600,700,800,900,BANKRUPT,LOSE TURN,DOUBLE" />
+					  </div>
+					</div>
+
+					<!-- Question Bank System -->
+					<div class="question-bank-controls">
+					  <h4 style="margin:16px 0 8px 0">🎯 Question Bank</h4>
+					  
+					  <!-- Category Filter -->
+					  <div class="filter-group">
+						<label class="small">Categories:</label>
+						<div class="checkbox-group">
+						  <label class="seg"><input type="checkbox" name="category" value="Proverb" checked> Proverbs</label>
+						  <label class="seg"><input type="checkbox" name="category" value="Movie Title"> Movie Titles</label>
+						  <label class="seg"><input type="checkbox" name="category" value="Idiom"> Idioms</label>
+						  <label class="seg"><input type="checkbox" name="category" value="Common Phrase"> Common Phrases</label>
+						  <label class="seg"><input type="checkbox" name="category" value="Animal"> Animals</label>
+						</div>
+					  </div>
+
+					  <!-- Difficulty Filter -->
+					  <div class="filter-group" style="margin-top:12px">
+						<label class="small">Difficulty:</label>
+						<div class="checkbox-group">
+						  <label class="seg"><input type="checkbox" name="difficulty" value="easy" checked> Easy</label>
+						  <label class="seg"><input type="checkbox" name="difficulty" value="medium" checked> Medium</label>
+						  <label class="seg"><input type="checkbox" name="difficulty" value="hard"> Hard</label>
+						</div>
+					  </div>
+					  <!-- Add this right after the difficulty filters -->
+						<div style="margin-top: 8px; font-size: 0.9rem; color: #9fb0c5;">
+							<span id="questionCountDisplay">0 questions available</span>
+						</div>
+
+					  <!-- Question Controls -->
+					  <div class="flex" style="margin-top:12px; gap:8px">
+						<button class="btn good" id="loadQuestionBtn">Load Question</button>
+					  </div>
+
+					  <!-- Current Question Display -->
+							<!-- Current Question Display -->
+								<div class="current-question" style="margin-top:12px; padding:12px; background:#0b1324; border-radius:8px; border:1px solid #1f2a44">
+								  <div class="small" style="color:#9fb0c5">Question Ready:</div>
+								  <div id="currentQuestionMeta" style="font-size:0.9rem; color:#a6b4c8; margin:4px 0">
+									<span id="currentCategory"></span> • <span id="currentDifficulty"></span>
+								  </div>
+								  <div id="currentQuestionHint" style="font-size:0.9rem; color:#9fb0c5; margin-top:4px; font-style:italic">
+									Host hint: <span id="hintText"></span>
+								  </div>
+								  <div style="font-size:0.8rem; color:#64748b; margin-top:6px">
+									✓ Ready to start round
+								  </div>
+								</div>
+
+					  <!-- Manual override -->
+					  <details style="margin-top:12px">
+						<summary>Manual Question Input</summary>
+						<div style="margin-top:8px">
+						  <label class="small">Custom phrase</label>
+						  <input id="hostPhrase" type="text" placeholder="Or type your own phrase here" />
+						</div>
+						<div style="margin-top:8px">
+						  <label class="small">Category <span class="muted">(optional)</span></label>
+						  <input id="hostCategory" type="text" placeholder="Proverb / Movie / etc." />
+						</div>
+					  </details>
+					</div>
+
+<!--         <div class="hostGrid">
+          <div>
+            <label class="small">Puzzle phrase (letters, spaces & punctuation OK)</label>
+            <input id="hostPhrase" type="text" placeholder="e.g., A STITCH IN TIME SAVES NINE" />
+          </div>
+          <div>
+            <label class="small">Category <span class="muted">(optional)</span></label>
+            <input id="hostCategory" type="text" placeholder="Proverb / Idiom / Food / Places ..." />
+          </div>
+          <div>
+            <label class="small">Teams (comma‑separated)</label>
+            <input id="hostTeams" type="text" value="Red, Blue, Green" />
+          </div>
+          <div>
+            <label class="small">Wheel Segments (comma‑separated; use BANKRUPT, LOSE TURN, DOUBLE)</label>
+            <input id="hostSegments" type="text" value="100,200,300,400,500,600,700,800,900,BANKRUPT,LOSE TURN,DOUBLE" />
+          </div>
+        </div>
+		 -->
+		
+		
+		
+		
+		
+		
+        <div class="flex" style="margin-top:10px">
+          <button class="btn good" id="startBtn">Start / Reset Round</button>
+          <button class="btn secondary" id="revealBtn">Reveal All</button>
+          <button class="btn bad" id="clearScoresBtn">Clear Scores</button>
+          <span class="hint">Tip: Click "Start / Reset" after changing settings.</span>
+        </div>
+        <details style="margin-top:12px">
+          <summary>Options</summary>
+          <div class="flex" style="margin-top:10px">
+            <label class="seg"><input type="checkbox" id="requireConsonant" checked style="margin-right:8px">Require consonants on spins</label>
+            <label class="seg"><input type="checkbox" id="showLetterCounts" style="margin-right:8px">Show letter counts on reveal</label>
+          </div>
+          <div class="hint" style="margin-top:8px">Vowels are allowed when solving; when this is on, students can only choose consonants after a spin (classic rules).</div>
+        </details>
+      </div>
+    </section>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+<canvas id="confetti" class="confetti"></canvas>
+
+
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ESL Wheel of Fortune</title>
+  
+  
+    <link rel="stylesheet" href="styles.css">
+  
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="script.js"></script>
+
+
+  
+  
+  
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🎡 ESL Wheel of Fortune</div>
+    <div class="sub">Team word‑guess game for classrooms — no setup, just open & play.</div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: Game / Students -->
+    <section class="card" id="game">
+      <div class="stage">
+        <div class="wheelBox">
+          <div class="pointer" title="Pointer"></div>
+          <svg id="wheel" class="wheel" viewBox="-220 -220 440 440" aria-label="spinning wheel"></svg>
+          <div style="margin-top:12px" class="row">
+            <button id="spinBtn" class="spinBtn">SPIN THE WHEEL</button>
+            <span id="spinResult" class="seg">—</span>
+          </div>
+        </div>
+        <div>
+          <div class="row" style="justify-content:space-between; margin-bottom:4px">
+            <div class="seg">Category: <strong id="categoryOut">(none)</strong></div>
+            <div class="score" id="teams"></div>
+          </div>
+          <div class="card puzzle-container" style="padding:14px; margin:10px 0 6px">
+            <div id="puzzle" class="puzzle" aria-live="polite"></div>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button class="btn" id="solveBtn">Solve</button>
+            <input id="solveInput" type="text" placeholder="Type full phrase to solve" class="grow" />
+            <button class="btn good" id="checkSolveBtn">Check</button>
+          </div>
+          <div class="hint" id="turnHint" style="margin-top:8px">Spin to begin. Then choose a letter.</div>
+          <div id="keyboard" class="keyboard" style="margin-top:8px"></div>
+        </div>
+      </div>
+    </section>
+	
+  <!-- ADD THIS -->
+  <div class="resize-handle"></div>	
+	
+
+    <!-- RIGHT: Host controls -->
+    <section class="card" id="host">
+      <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:10px">
+        <h3 style="margin:0">🎤 Host Controls</h3>
+        <button class="btn secondary" id="hideSettingsBtn">Hide Settings</button>
+      </div>
+      <div id="hostControls">
+        <div class="hostGrid">
+          <div>
+            <label class="small">Puzzle phrase (letters, spaces & punctuation OK)</label>
+            <input id="hostPhrase" type="text" placeholder="e.g., A STITCH IN TIME SAVES NINE" />
+          </div>
+          <div>
+            <label class="small">Category <span class="muted">(optional)</span></label>
+            <input id="hostCategory" type="text" placeholder="Proverb / Idiom / Food / Places ..." />
+          </div>
+          <div>
+            <label class="small">Teams (comma‑separated)</label>
+            <input id="hostTeams" type="text" value="Red, Blue, Green" />
+          </div>
+          <div>
+            <label class="small">Wheel Segments (comma‑separated; use BANKRUPT, LOSE TURN, DOUBLE)</label>
+            <input id="hostSegments" type="text" value="100,200,300,400,500,600,700,800,900,BANKRUPT,LOSE TURN,DOUBLE" />
+          </div>
+        </div>
+        <div class="flex" style="margin-top:10px">
+          <button class="btn good" id="startBtn">Start / Reset Round</button>
+          <button class="btn secondary" id="revealBtn">Reveal All</button>
+          <button class="btn bad" id="clearScoresBtn">Clear Scores</button>
+          <span class="hint">Tip: Click "Start / Reset" after changing settings.</span>
+        </div>
+        <details style="margin-top:12px">
+          <summary>Options</summary>
+          <div class="flex" style="margin-top:10px">
+            <label class="seg"><input type="checkbox" id="requireConsonant" checked style="margin-right:8px">Require consonants on spins</label>
+            <label class="seg"><input type="checkbox" id="showLetterCounts" style="margin-right:8px">Show letter counts on reveal</label>
+          </div>
+          <div class="hint" style="margin-top:8px">Vowels are allowed when solving; when this is on, students can only choose consonants after a spin (classic rules).</div>
+        </details>
+      </div>
+    </section>
+  </div>
+</div>
+<canvas id="confetti" class="confetti"></canvas>
+
+
+</body>
+</html>
