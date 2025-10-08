@@ -3,6 +3,10 @@
 //@@@bugfix: double isn't working
 //@@@DOUBLE: CHOOSE A CONS, EVEN WHEN ALLOWING VOWELS
 //@@@feature: make sure answer uppercase
+//@@@slow and dramatic end to the wheel spin
+//@@@combine different "toast" functions, one that takes text, plus mood (good, bad, neutral)
+//@@@loading_new_question is two events: load_teams and load_question
+
 
 
 
@@ -57,7 +61,7 @@ $(document).ready(function() {
         #showLetterCounts = false;
 		#vowelCost = 0; //not implemented
 		#solveBonusPoints = 1000; //not implemented?
-        #wheelSegments = ["100","200","300","400","500","600","700","800","900","BANKRUPT","LOSE TURN","DOUBLE"];
+        #wheelSegments = ["100","DOUBLE","300","900","500","888","BANKRUPT","999","400","700","LOSE TURN","200"];
         #defaultPhrase = "TIME";
         //#defaultPhrase = "A STITCH IN TIME SAVES NINE";
         
@@ -124,8 +128,7 @@ class StateVariables {
 		);
 		this.#validTransitions = new Map([
 			['awaiting_first_question', new Set(['loading_new_question'])], //waiting state
-			['loading_new_question', new Set(['awaiting_first_question', 'awaiting_spin'])], //not quite: could be at puzzle_revealed 
-																			//so that wouldn't go back to "awaiting_first_question": would not be the ***first*** question
+			['loading_new_question', new Set(['awaiting_first_question', 'puzzle_revealed', 'awaiting_spin'])], //if it fails: reverts
 			['awaiting_spin', new Set(['wheel_spin_start', 'processing_solve_attempt'])], //waiting state
 			['wheel_spin_start', new Set(['wheel_spinning_now'])],
 			['wheel_spinning_now', new Set(['wheel_spin_complete'])],
@@ -134,6 +137,9 @@ class StateVariables {
 			['processing_letter', new Set(['awaiting_spin', 'processing_solve_attempt', 'puzzle_revealed'])],
 			['processing_solve_attempt', new Set(['awaiting_spin', 'puzzle_revealed'])],
 			['puzzle_revealed', new Set(['loading_new_question'])] //waiting state
+		]);
+		this.#forbiddenTransitions = new Map([
+			['awaiting_first_question', new Set(['processing_solve_attempt'])],
 		]);
     }
 
@@ -882,6 +888,59 @@ class StateVariables {
 			});
         }
 
+		//NEW METHOD FOR LOADING QUESTIONS FROM OUTSIDE
+		loadQuestionFromBank(data) {
+			console.log("GameEngine: Loading question from bank", data.phrase);
+			const phrase = data.phrase;
+			const category = data.category;
+			const teamNames = data.teamNames;
+			const wheelSegments = data.wheelSegments;
+			
+			// TODO: LATER - Separate question loading from full game reset
+			// For now, we reset everything for simplicity
+			// FUTURE: Should preserve teams/scores and just change puzzle
+			
+			this.#stateVariablesGE.changeState('loading_new_question', 
+					{source: 'loadQuestionFromBank, ie from databank', phrase, category, teamNames, wheelSegments});
+
+		}
+
+
+
+
+		//@@@TODO: LATER - Split into:
+		// #startNewGame() - full reset with new teams  
+		// #loadNewQuestion() - just change puzzle
+		// #resetRound() - reset game state but keep teams
+		//@@@should return true/false: false = fails some validity check
+        #startRound({phrase, category, teamNames, wheelSegments}) {
+            // Update settings
+            if (wheelSegments) {
+                this.#settings.wheelSegments = wheelSegments;
+            }
+			
+			console.log("team names are: ", teamNames);
+
+            //@@@init teams: not the ideal setup
+            this.#teamManager.initializeTM(teamNames);
+
+            //@@@PUZZLE SETUP: ADD OTHER DATA HERE, EG HINTS
+            this.#puzzleManager.setPuzzle({phrase, category}); //category is set by the host
+
+            // Reset wheel
+            this.#wheelManager.initializeWM(
+                this.#settings.wheelSegments,
+                $('#wheel')
+            );
+
+            // Reset keyboard
+            this.#keyboardManager.reset();
+            this.#keyboardManager.updateGuessedLettersKM(this.#puzzleManager.guessedLettersPM);
+            this.#eventSystemGE.emit('gameMessage',
+                `${this.#teamManager.currentTeamName}, start us off — spin the wheel!`);
+        }
+		
+		
 		//post-condition: will return the state change parameter, and will change the team if needed
         #handleWheelResult(result) {
             const value = result.value;
@@ -950,34 +1009,7 @@ class StateVariables {
                 `${this.#teamManager.currentTeamName} solved it! +1000 bonus.`);
             this.#eventSystemGE.emit('confettiBurst');
         }
-
-		//@@@should return true/false: false = fails some validity check
-        #startRound({phrase, category, teamNames, wheelSegments}) {
-            // Update settings
-            if (wheelSegments) {
-                this.#settings.wheelSegments = wheelSegments;
-            }
-			
-			console.log("team names are: ", teamNames);
-
-            // Initialize teams
-            this.#teamManager.initializeTM(teamNames);
-
-            //@@@PUZZLE SETUP: ADD OTHER DATA HERE, EG HINTS
-            this.#puzzleManager.setPuzzle({phrase, category}); //category is set by the host
-
-            // Reset wheel
-            this.#wheelManager.initializeWM(
-                this.#settings.wheelSegments,
-                $('#wheel')
-            );
-
-            // Reset keyboard
-            this.#keyboardManager.reset();
-            this.#keyboardManager.updateGuessedLettersKM(this.#puzzleManager.guessedLettersPM);
-            this.#eventSystemGE.emit('gameMessage',
-                `${this.#teamManager.currentTeamName}, start us off — spin the wheel!`);
-        }
+		
 
 		//called by state change in GE only
 		//pre: attempted solution; post: only handles true/false, minimal output
@@ -1021,7 +1053,8 @@ class StateVariables {
         #setupEventListenersUI() {
 			console.log("setting up event listeners");
             this.#eventSystemUI.on('gameMessage', (message) => {
-                $('#turnHint').text(message);
+                //$('#turnHint').text(message);
+				N.toast(message);
             });
 
             this.#eventSystemUI.on('puzzleUpdated', (data) => {
@@ -1232,10 +1265,10 @@ class StateVariables {
 	//N.toast("Game Started!", 2000);
 
 	// Good toast with smiley
-	N.toastGood("Correct! +100 points");
+	//N.toastGood("Correct! +100 points");
 
 	// Bad toast with frowny  
-	N.toastBad("Bankrupt! Lost all points");
+	//N.toastBad("Bankrupt! Lost all points");
 
 	// Custom duration
 	//N.toast("Team Blue's turn", 5000);

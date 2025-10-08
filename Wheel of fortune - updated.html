@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ESL Wheel of Fortune</title>
+  <title>🎡 ESL Wheel of Fortune</title>
   
   
     <link rel="stylesheet" href="styles.css">
@@ -86,7 +86,20 @@
       <div id="hostControls">
 
 
-
+        <div class="flex" style="margin-top:10px">
+          <button class="btn good" id="startBtn">Start / Reset Round</button>
+          <button class="btn secondary" id="revealBtn">Reveal Answer</button>
+          <button class="btn bad" id="clearScoresBtn">Clear Scores</button>
+          <span class="hint">Tip: Click "Start / Reset" after changing settings.</span>
+        </div>
+        <details style="margin-top:12px">
+          <summary>Options</summary>
+          <div class="flex" style="margin-top:10px">
+            <label class="seg"><input type="checkbox" id="requireConsonant" checked style="margin-right:8px">Require consonants on spins</label>
+            <label class="seg"><input type="checkbox" id="showLetterCounts" style="margin-right:8px">Show letter counts on reveal</label>
+          </div>
+          <div class="hint" style="margin-top:8px">Vowels are allowed when solving; when this is on, students can only choose consonants after a spin (classic rules).</div>
+        </details>
 
 
 
@@ -188,24 +201,6 @@
 		 -->
 		
 		
-		
-		
-		
-		
-        <div class="flex" style="margin-top:10px">
-          <button class="btn good" id="startBtn">Start / Reset Round</button>
-          <button class="btn secondary" id="revealBtn">Reveal Answer</button>
-          <button class="btn bad" id="clearScoresBtn">Clear Scores</button>
-          <span class="hint">Tip: Click "Start / Reset" after changing settings.</span>
-        </div>
-        <details style="margin-top:12px">
-          <summary>Options</summary>
-          <div class="flex" style="margin-top:10px">
-            <label class="seg"><input type="checkbox" id="requireConsonant" checked style="margin-right:8px">Require consonants on spins</label>
-            <label class="seg"><input type="checkbox" id="showLetterCounts" style="margin-right:8px">Show letter counts on reveal</label>
-          </div>
-          <div class="hint" style="margin-top:8px">Vowels are allowed when solving; when this is on, students can only choose consonants after a spin (classic rules).</div>
-        </details>
       </div>
     </section>
   </div>
