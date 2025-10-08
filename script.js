@@ -1,49 +1,53 @@
+//@@@BUGFIX: wrong guess at start of game: everything gets blocked
+//@@@bugfix: wrong guess before load: enables stuff, guess should not be allowed if game active
+//@@@bugfix: double isn't working
+//@@@DOUBLE: CHOOSE A CONS, EVEN WHEN ALLOWING VOWELS
+//@@@feature: make sure answer uppercase
+
+
+
 $(document).ready(function() {
 
+	class NeptuneDesign {
+		// ... constructor same as before ...
+		
+		toast(message, duration = 3000) {
+			this._removeExistingToast();
+			
+			const $toast = $(`<div class="toast">${message}</div>`);
+			$toast.css('animation-duration', (duration / 1000) + 's');
+			
+			$('body').append($toast);
+			
+			setTimeout(() => $toast.remove(), duration);
+		}
 
-
-class NeptuneDesign {
-    // ... constructor same as before ...
-    
-    toast(message, duration = 3000) {
-        this._removeExistingToast();
-        
-        const $toast = $(`<div class="toast">${message}</div>`);
-        $toast.css('animation-duration', (duration / 1000) + 's');
-        
-        $('body').append($toast);
-        
-        setTimeout(() => $toast.remove(), duration);
-    }
-    
-    toastGood(message, duration = 3000) {
-        this._removeExistingToast();
-        
-        const $toast = $(`<div class="toast toast-good">😊 ${message}</div>`);
-        $toast.css('animation-duration', (duration / 1000) + 's');
-        
-        $('body').append($toast);
-        
-        setTimeout(() => $toast.remove(), duration);
-    }
-    
-    toastBad(message, duration = 3000) {
-        this._removeExistingToast();
-        
-        const $toast = $(`<div class="toast toast-bad">😞 ${message}</div>`);
-        $toast.css('animation-duration', (duration / 1000) + 's');
-        
-        $('body').append($toast);
-        
-        setTimeout(() => $toast.remove(), duration);
-    }
-    
-    _removeExistingToast() {
-        $('.toast').remove();
-    }
-}
-
-
+		toastGood(message, duration = 3000) {
+			this._removeExistingToast();
+			
+			const $toast = $(`<div class="toast toast-good">😊 ${message}</div>`);
+			$toast.css('animation-duration', (duration / 1000) + 's');
+			
+			$('body').append($toast);
+			
+			setTimeout(() => $toast.remove(), duration);
+		}
+		
+		toastBad(message, duration = 3000) {
+			this._removeExistingToast();
+			
+			const $toast = $(`<div class="toast toast-bad">😞 ${message}</div>`);
+			$toast.css('animation-duration', (duration / 1000) + 's');
+			
+			$('body').append($toast);
+			
+			setTimeout(() => $toast.remove(), duration);
+		}
+		
+		_removeExistingToast() {
+			$('.toast').remove();
+		}
+	}
 
 //======================================== GAME SETTINGS ========================================
     class GameSettings {
@@ -54,7 +58,8 @@ class NeptuneDesign {
 		#vowelCost = 0; //not implemented
 		#solveBonusPoints = 1000; //not implemented?
         #wheelSegments = ["100","200","300","400","500","600","700","800","900","BANKRUPT","LOSE TURN","DOUBLE"];
-        #defaultPhrase = "A STITCH IN TIME SAVES NINE";
+        #defaultPhrase = "TIME";
+        //#defaultPhrase = "A STITCH IN TIME SAVES NINE";
         
 		
 		get numberOfTeams() { return this.#numberOfTeams; } //not implemented
@@ -85,125 +90,109 @@ class NeptuneDesign {
 
 
 /*
+@@@can add extra dummy states to show entering and leaving a state
 Core States:
-	'uninitialized' → Page loaded, engine not ready
-	'initializing' → @@@proposed state, when clicking any "load" button, can add source of click
+	'awaiting_first_question' → Page loaded, no problem ready
+	'loading_new_question' → @@@proposed state, when clicking any "load" button, can add source of click
 	'awaiting_spin' → Wheel stopped, can spin again
 	'wheel_spin_start' → Wheel is about to start but not spinning
 	'wheel_spinning_now' → Wheel is physically spinning
 	'wheel_spin_complete → Wheel has finished spinning, ready for result (special event because DOM is delayed here)
 	'awaiting_letter' → Wheel landed, player must guess consonant
 	'processing_letter' → Letter entered, processing
-	'awaiting_solve' → Player can solve or spin again
-	'solving' → Player entered solve mode
-	'revealed' → Puzzle solved/revealed, round over
+	'processing_solve_attempt' → Player can solve or spin again
+	'puzzle_revealed' → Puzzle solved/revealed, round over
 
 */
 
 class StateVariables {
     // ===== STATE TRANSITIONS =====
-    #currentState = 'uninitialized'; //only set here, inside StateVariables class, never changes to this state
-    #currentTurn = 0;
-    #pendingPoints = 0;
-    #pendingMultiplier = 1;
+    #currentState;
+	#validStates;
+	#validTransitions;
+	#forbiddenTransitions;
+
+    #currentTurn; //not implemented: not needed here (not a major transition state)
+    #pendingPointsSV = 0; //not implemented
+    #pendingMultiplierSV = 1; //not implemented
     #eventSystemSV;
-    
+
     constructor(eventSystem) {
         this.#eventSystemSV = eventSystem;
+		this.#validStates = new Set(
+			['awaiting_first_question', 'loading_new_question', 'awaiting_spin', 'wheel_spin_start', 'wheel_spinning_now', 'wheel_spin_complete', 'awaiting_letter', 'processing_letter', 'processing_solve_attempt', 'puzzle_revealed']
+		);
+		this.#validTransitions = new Map([
+			['awaiting_first_question', new Set(['loading_new_question'])], //waiting state
+			['loading_new_question', new Set(['awaiting_first_question', 'awaiting_spin'])], //not quite: could be at puzzle_revealed 
+																			//so that wouldn't go back to "awaiting_first_question": would not be the ***first*** question
+			['awaiting_spin', new Set(['wheel_spin_start', 'processing_solve_attempt'])], //waiting state
+			['wheel_spin_start', new Set(['wheel_spinning_now'])],
+			['wheel_spinning_now', new Set(['wheel_spin_complete'])],
+			['wheel_spin_complete', new Set(['awaiting_letter', 'awaiting_spin'])],
+			['awaiting_letter', new Set(['processing_letter', 'processing_solve_attempt'])], //waiting state
+			['processing_letter', new Set(['awaiting_spin', 'processing_solve_attempt', 'puzzle_revealed'])],
+			['processing_solve_attempt', new Set(['awaiting_spin', 'puzzle_revealed'])],
+			['puzzle_revealed', new Set(['loading_new_question'])] //waiting state
+		]);
     }
 
     // ===== DIRECT GETTERS =====
     getCurrentStateDebug() { return this.#currentState; } //special method for debugging; should not be needed for logic
-    get currentTurn() { return this.#currentTurn; }
-    get pendingPoints() { return this.#pendingPoints; }
-    get pendingMultiplier() { return this.#pendingMultiplier; }
 
     // ===== DERIVED GETTERS =====
-    get isInitialized() { return this.#currentState !== 'uninitialized'; }
+    get isInitialized() { return this.#currentState !== undefined; }
     get canSpin() { return this.#currentState === 'awaiting_spin'; }
     get isWheelSpinningNow() { return this.#currentState === 'wheel_spinning_now'; }
     get canGuessLetters() { return this.#currentState === 'awaiting_letter'; }
-    get canSolve() { return ['awaiting_spin', 'awaiting_letter', 'awaiting_solve', 'solving'].includes(this.#currentState); }
+    get canSolve() { return ['awaiting_spin', 'awaiting_letter'].includes(this.#currentState); }
 		//@@@canSolve() not working properly yet
-    get isGameActive() { return !['uninitialized', 'setup', 'revealed'].includes(this.#currentState); }
+    get isGameActive() { return !['awaiting_first_question', 'loading_new_question', 'puzzle_revealed'].includes(this.#currentState); }
     get isInputEnabled() { return this.canSolve; }
+	
+	
+	setInitialPageLoadedState() {
+		this.#currentState = 'awaiting_first_question';
+	}
 
     // ===== STATE TRANSITION METHOD =====
     changeState(newState, data = {}) {
         const oldState = this.#currentState;
-        
-        // Validate state exists
-        const validStates = ['uninitialized', 'setup', 'awaiting_spin', 'wheel_spin_start', 'wheel_spinning_now', 'wheel_spin_complete', 'awaiting_letter', 'processing_letter', 'awaiting_solve', 'solving', 'revealed'];
-        if (!validStates.includes(newState)) {
+
+        //Invalid state: exit
+        if (!this.#validStates.has(newState)) {
             console.error(`Invalid state: ${newState}`);
             return false;
         }
-
         // Validate transition (with warnings, not errors - allow flexibility)
-        if (!this.#isValidTransition(oldState, newState)) {
+        if (!this.#validTransitions.get(oldState)?.has(newState)) { //.get() undefined should be impossible, but still falsy
             console.warn(`Unusual state transition: ${oldState} → ${newState}`);
         }
-        
+
         // Update state
         this.#currentState = newState;
+		console.log(`State: ${oldState} → ${newState}`, data);
         
-        // Emit events: state-driven events must only be emitted here, but will be added elsewhere with .on(event, callback)
-		//stateChanged event: preserves structure of data object, which is simply whatever was passed, ZERO ASSUMPTIONS
-		//state:new_state: elongates: REPACKAGES AS NEW OBJECT
+        // Emit events: state-driven events must only be emitted here, added with: .on(event, callback)
         if (this.#eventSystemSV) {
             this.#eventSystemSV.emit('stateChanged', { //one event with different actions attached, all in UIController atm.
                 oldState,
                 newState,
-                data,
+                data, //same parameter passed in, included with zero assumptions
             });
 
             this.#eventSystemSV.emit(`state:${newState}`, { //@@@DIFF EVENT PER STATE, EACH MUST BE ATTACHED
                 oldState,
-                ...data
+                ...data //elongate and repackage as a new object
             });
         } else {
 			console.error("Warning: no #eventSystemSV found");
 		}
-
-        console.log(`State: ${oldState} → ${newState}`, data);
         return true;
     }
 
-	//@@@key problems: awaiting solve vs revealed: i don't even understand the desired logic here
-    #isValidTransition(oldState, newState) {
-        const validTransitions = {
-            'uninitialized': ['initializing', 'revealed'],
-			'initializing': ['uninitialized', 'awaiting_spin'], //@@@not implemented, if it fails to init, will revert
-            'awaiting_spin': ['wheel_spin_start', 'awaiting_solve', 'revealed', 'setup'],
-			'wheel_spin_start': ['wheel_spinning_now'],
-            'wheel_spinning_now': ['wheel_spin_complete'],
-			'wheel_spin_complete': ['awaiting_letter', 'awaiting_spin', 'revealed'],
-            'awaiting_letter': ['processing_letter'],
-			'processing_letter': ['awaiting_spin', 'awaiting_solve', 'revealed'],
-            'awaiting_solve': ['solving', 'awaiting_spin', 'revealed'],
-            'solving': ['revealed', 'awaiting_spin'],
-            'revealed': ['setup'] //@@@surely awaiting_spin is not valid??
-        };
-        return validTransitions[oldState]?.includes(newState) || false;
-    }
-
     // ===== OTHER SETTERS =====
-    setCurrentTurn(turn) { 
-        this.#currentTurn = turn; 
-        // Optionally emit event for turn changes
-        if (this.#eventSystemSV) {
-            this.#eventSystemSV.emit('turnChanged', { turn }); //@@@try to use this in the code, no need for eventSystem in other classes
-        }
-    }
-
-	//@@@may not be useful/needed???
-    setPendingPointsSV(points) { 
-        this.#pendingPoints = points; 
-    }
-    //@@@may not be needed??
-    setPendingMultiplier(multiplier) { 
-        this.#pendingMultiplier = multiplier; 
-    }
+	//OOP: can use this class more for eg pending multiplier
 }
 
 
@@ -279,28 +268,40 @@ class StateVariables {
         #teams = [];
         #currentTurnIndex = 0;
 		#currentTeam;
-        #pendingPoints = 0;
-        #pendingMultiplier = 1;
+		#pendingPoints = 0;
+		#pendingMultiplier = 1;
+		#currentPendingState; //NEW: optional marker for state of previous guesses
         #eventSystemTM;
         
         constructor(eventSystem) {
             this.#eventSystemTM = eventSystem;
+			/*this.#currentPendingState = {
+				pendingPoints: 0,
+				pendingMultiplier: 1,
+			}*/ //MORE ROBUST METHOD FOR LATER
         }
         
 		#getCurrentTeam() { return this.#teams[this.#currentTurnIndex]; } //OOP: new system
         get teams() { return [...this.#teams]; } //OOP: good - only used for renderTeams in UIController
 		get currentTurnIndex() { return this.#currentTurnIndex; }
-        //get currentTeam() { return this.#teams[this.#currentTurnIndex]; } //OOP: not good design
+        //get currentTeam() { return this.#teams[this.#currentTurnIndex]; } //OOP: not needed
 		get currentTeamName() { return this.#teams[this.#currentTurnIndex].name; } //OOP: replacement to limit surface area
         get pendingPoints() { return this.#pendingPoints; }
         get pendingMultiplier() { return this.#pendingMultiplier; }
+		
+		//Pending points: set only once; value depends on THE GUESS
+        setPendingPoints(points) { this.#pendingPoints = points; }
+        setPendingMultiplier(multiplier) { 
+			this.#pendingMultiplier = multiplier;
+			console.log("Multiplier updated: ", this.#pendingMultiplier);
+		}
 
         initializeTM(teamNames) {
             this.#teams = teamNames.map(name => new Team(name.trim()));
             this.#currentTurnIndex = 0;
             this.#pendingPoints = 0;
-            this.#pendingMultiplier = 1;
-			//@@@several methods with events that are not state-driven
+            this.setPendingMultiplier(1);
+			//@@@several methods with events that are not state-driven, mostly UI updaters
             this.#eventSystemTM.emit('teamsUpdated', this.#teams); //set in UIController and emitted here and in resetAllScores()
             this.#eventSystemTM.emit('turnChanged', this.#getCurrentTeam());
             this.#eventSystemTM.emit('scoreUpdated');
@@ -311,26 +312,28 @@ class StateVariables {
             this.#getCurrentTeam().addPoints(points);
 
             this.#pendingPoints = 0;
-            this.#pendingMultiplier = 1;
+            this.setPendingMultiplier(1);
 
             this.#eventSystemTM.emit('scoreUpdated');
 		}
+		
 
-
-
-		//Pending points: depends on next spin
-        setPendingPoints(points) { this.#pendingPoints = points; }
-        setPendingMultiplier(multiplier) { this.#pendingMultiplier = multiplier; }
-        
         addPendingPointsToCurrentTeam(letterCount) {
             if (!this.#getCurrentTeam()) return 0;
             
             const points = letterCount * this.#pendingPoints * this.#pendingMultiplier;
+			console.log("---BUGFIX: ABOUT TO ADD POINTS, MULTIPLIER: ", points, this.#pendingMultiplier);
             this.#getCurrentTeam().addPoints(points);
-            
-            this.#pendingPoints = 0;
-            this.#pendingMultiplier = 1;
-            
+
+			
+			//@@@QUICK FIX ONLY: IF "DOUBLE": PENDING WILL BE ZERO; SO DON'T CHANGE MULTIPLIER
+			//SHOULD WORK BUT DEPENDS ON PROGRAM LOGIC ELSEWHERE (nextTurn() CLEARS THINGS)
+			if (this.#pendingPoints != 0) {
+				this.#pendingPoints = 0;
+				this.setPendingMultiplier(1);
+			}
+
+
             this.#eventSystemTM.emit('scoreUpdated'); //updates all scores
             return points;
         }
@@ -342,8 +345,8 @@ class StateVariables {
 			}
 			this.#currentTurnIndex = (this.#currentTurnIndex + 1) % this.#teams.length;
 			this.#pendingPoints = 0;
-			this.#pendingMultiplier = 1;
-			this.#eventSystemTM.emit('turnChanged', this.#getCurrentTeam()); //@@@turnChanged could drive event (now only updates UI)
+			this.setPendingMultiplier(1);
+			this.#eventSystemTM.emit('turnChanged', this.#getCurrentTeam()); //turnChanged only updates UI
 		}
 
         bankruptCurrentTeam() {
@@ -387,6 +390,7 @@ class StateVariables {
         }
         
         setPuzzle({phrase, category = ''}) {
+			console.log("puzzle phrase, category: ", phrase, category);
             this.#phrase = phrase;
             this.#category = category;
             this.#guessedLettersPM.clear();
@@ -412,10 +416,6 @@ class StateVariables {
             for (const char of upperPhrase) {
                 if (char === upperLetter) count++;
             }
-
-            if (this.isSolved) {
-                this.#eventSystemPM.emit('puzzleSolved'); //@@@must be part of StateVariables
-            }
             return count;
         }
         
@@ -428,7 +428,7 @@ class StateVariables {
                     this.#guessedLettersPM.add(char);
                 }
             }
-            this.#eventSystemPM.emit('puzzleRevealed');
+            this.#eventSystemPM.emit('puzzleRevealAllLogicUpdated'); 
         }
         
         getDisplayState() {
@@ -438,7 +438,7 @@ class StateVariables {
                 if (!/[A-Z]/.test(upperChar)) {
                     result.push({ type: 'space', char: char });
                 } else if (this.#guessedLettersPM.has(upperChar) || this.#revealedAll) {
-                    result.push({ type: 'revealed', char: char });
+                    result.push({ type: 'revealed', char: char }); //@@@what does this do: type 'revealed' - what is the program flow?
                 } else {
                     result.push({ type: 'hidden', char: '•' });
                 }
@@ -531,25 +531,81 @@ class StateVariables {
                 grad.appendChild(stop1); grad.appendChild(stop2); defs.appendChild(grad);
                 
                 const mid = start + angle / 2;
-                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                
+
+				/*
+				// OLD: Single horizontal text
+				const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                 label.setAttribute('font-size', '18');
                 label.setAttribute('font-weight', '800');
                 label.setAttribute('fill', '#08111f');
                 label.setAttribute('text-anchor', 'middle');
                 label.setAttribute('dominant-baseline', 'middle');
                 
-                const [tx, ty] = polar(R * 0.65, mid);
+                const [tx, ty] = polar(R * 0.8, mid);
                 label.setAttribute('x', tx.toFixed(2));
                 label.setAttribute('y', ty.toFixed(2));
                 
                 let rot = mid;
-                if (rot > 90 && rot < 270) { rot += 180; }
+                //if (rot > 90 && rot < 270) { rot += 180; } //this was causing the silly pseudo-rotations
                 label.setAttribute('transform', `rotate(${rot.toFixed(2)} ${tx.toFixed(2)} ${ty.toFixed(2)})`);
                 label.textContent = this.#segments[i];
-                
-                g.appendChild(defs);
+				g.appendChild(defs);
                 g.appendChild(wedge);
                 g.appendChild(label);
+				*/
+				// NEW: Vertical text with individual letters
+				const text = this.#segments[i].toString();
+				const textLength = text.length;
+
+				// Adaptive sizing based on text length
+				let fontSize, letterSpacing, radiusMultiplier;
+
+				if (textLength <= 3) {
+					// Numbers and short words (100, 500, etc.)
+					fontSize = 25;
+					letterSpacing = 22;
+					radiusMultiplier = 0.77; // Closer to center for short text
+				} else if (textLength <= 6) {
+					// Medium words (BANKRUPT, DOUBLE)
+					fontSize = 20;
+					letterSpacing = 18;
+					radiusMultiplier = 0.67; // Further out for medium text
+				} else {
+					// Long words (LOSE TURN - though it should be split)
+					fontSize = 18;
+					letterSpacing = 15;
+					radiusMultiplier = 0.64; // Furthest out for long text
+				}
+
+				const [tx,ty] = polar(R * radiusMultiplier, mid);
+
+				let rot = mid;
+				//if(rot > 180) { rot -= 180; }
+
+				const labelGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
+				labelGroup.setAttribute('transform', `rotate(${rot.toFixed(2)} ${tx.toFixed(2)} ${ty.toFixed(2)})`);
+
+				for(let j = 0; j < textLength; j++) {
+					const letter = document.createElementNS('http://www.w3.org/2000/svg','text');
+					letter.setAttribute('font-size', fontSize.toString());
+					letter.setAttribute('font-weight','800');
+					letter.setAttribute('fill','#08111f');
+					letter.setAttribute('text-anchor','middle');
+					letter.setAttribute('dominant-baseline','middle');
+					letter.setAttribute('x', tx.toFixed(2));
+					letter.setAttribute('y', (ty + (j - (textLength-1)/2) * letterSpacing).toFixed(2));
+					letter.textContent = text[j];
+					labelGroup.appendChild(letter);
+				}
+
+				g.appendChild(defs);
+				g.appendChild(wedge);
+				g.appendChild(labelGroup);
+				//END OF NEW CODE
+				
+                
+
                 this.#svgElement[0].appendChild(g);
             }
             
@@ -641,7 +697,7 @@ class StateVariables {
         initializeKM(element) {
             this.#element = element;
             this.#createKeys();
-            this.disableKB();
+            this.#disableKB();
         }
 
 		//other public methods should be named after states (or possibly state changes), eg. processGuessKM(letter)
@@ -667,7 +723,7 @@ class StateVariables {
             this.#updateKeyStates();
         }
 
-        disableKB() { //can we make this private?? make the public call a state change
+        #disableKB() { //can we make this private?? make the public call a state change
             if (this.#element) {
                 this.#element.find('.key').prop('disabled', true);
             }
@@ -697,7 +753,7 @@ class StateVariables {
         //reset KeyboardManager
         reset() {
             this.#guessedLettersKM.clear();
-            this.disableKB();
+            this.#disableKB();
         }
     }
 
@@ -729,7 +785,7 @@ class StateVariables {
 		get settings() { return this.#settings; }
         get stateVariables() { return this.#stateVariablesGE; }
 
-        initializeGE() {
+        initializeOnPageLoadGE() {
             if (this.#stateVariablesGE.isInitialized ) return;
             this.#wheelManager = new WheelManager({eventSystem: this.#eventSystemGE, stateVariables: this.#stateVariablesGE});
 			this.#keyboardManager = new KeyboardManager({eventSystem: this.#eventSystemGE, stateVariables: this.#stateVariablesGE});
@@ -742,49 +798,88 @@ class StateVariables {
             this.#keyboardManager.initializeKM($('#keyboard'));
             
             // Set up initial puzzle
-            this.#puzzleManager.setPuzzle({
-                phrase: this.#settings.defaultPhrase,
-                category: 'proverb',
-            });
-            this.#stateVariablesGE.changeState('awaiting_spin');
+			//@@@@@*******DELETE THIS, THERE IS NO PUZZLE
+            //this.#puzzleManager.setPuzzle({
+                //phrase: this.#settings.defaultPhrase,
+                //category: 'proverb',
+            //});
         }
 
         #setupEventListenersGE() {
-			this.#eventSystemGE.on('state:awaiting_spin', () => {
-				console.log("triggered 'state:awaiting_spin'");
-				this.#keyboardManager.disableKB();
+			this.#eventSystemGE.on('state:awaiting_first_question', (data) => {
+				console.log("awaiting_first_question: ", data.source);
+			});
+			this.#eventSystemGE.on('state:loading_new_question', (data) => {
+				this.#startRound({
+					phrase: data.phrase,
+					category: data.category,
+					teamNames: data.teamNames,
+					wheelSegments: data.wheelSegments,
+				});
+				this.#stateVariablesGE.changeState('awaiting_spin', {source: 'loading_new_question'}); //@@@@must check load complete: startRound must return true/false
+			});
+
+			this.#eventSystemGE.on('state:awaiting_spin', (data) => {
+				console.log("initialising: source: ", data.source);
+				//@@@@@handle activation of wheel button, deactivation of keyboard here????
+			});
+			
+			this.#eventSystemGE.on('state:wheel_spin_start', () => {
+				this.#stateVariablesGE.changeState('wheel_spinning_now');
 			});
 			this.#eventSystemGE.on('state:wheel_spinning_now', () => {
 				this.#wheelManager.spinWM();
 			});
+			
+			//@@@this needs more care: follow state changes
             this.#eventSystemGE.on('state:wheel_spin_complete', (result) => { //special event triggered when wheel actually stops
-                const newState = this.#handleWheelResult(result); 
-				this.#stateVariablesGE.changeState(newState); //awaiting_letter or awaiting_spin
+                const isSuccessfulSpin = this.#handleWheelResult(result); 
+				const newState = isSuccessfulSpin ? 'awaiting_letter' : 'awaiting_spin';
+				this.#stateVariablesGE.changeState(newState, {source: 'wheel_spin_complete'}); //awaiting_letter or awaiting_spin
             });
 
-			//@@@dummy listener: must fully check flow then implement
-			this.#eventSystemGE.on('state:awaiting_solve', () => {
-				console.log("triggered 'state:awaiting_solve'");
-			});
-			this.#eventSystemGE.on('state:wheel_spin_start', () => {
-				this.#stateVariablesGE.changeState('wheel_spinning_now');
-			});
 			this.#eventSystemGE.on('state:awaiting_letter', () => {
 				const allowVowels = !this.#settings.requireConsonants;
 				this.#keyboardManager.enableKB(allowVowels); 
 					//activates keyboard -> allows event listener
-						//event listener attached in KM, which uses the event 'keyboardLetterSelected' [changing to processing_letter]
+						//event listener attached in KM, which uses the event 'processing_letter'
 			});
             // Keyboard events
             this.#eventSystemGE.on('state:processing_letter', (result) => { //parameter is an object
-                this.#handleLetterGuess(result.letter);
-				this.#eventSystemGE.emit('letterGuessLogicUpdated');
-				this.#stateVariablesGE.changeState('awaiting_spin');
+                let returnObj = this.#handleLetterGuess(result.letter);
+				if (returnObj.isSolved) {
+					this.#stateVariablesGE.changeState('puzzle_revealed', {source: 'processing_letter'});
+					
+				} else {
+					this.#stateVariablesGE.changeState('awaiting_spin', {source: 'processing_letter'});
+				}
+				this.#eventSystemGE.emit('letterGuessLogicUpdated'); //UI updater: renderPuzzle only
             });
-            //@@@must change to a state:revealed (but also needs an underscore name ideally)
-            this.#eventSystemGE.on('puzzleSolved', () => {
-                this.#handlePuzzleCorrectlySolved();
-            });
+
+			//@@@event must not be called if state not compatible
+			this.#eventSystemGE.on('state:processing_solve_attempt', (data) => {
+				const guess = data.guess;
+				const result = this.#processDirectAttemptSolvePuzzle(guess); //only returns true/false, minimal other response
+				if (result) {
+					this.#stateVariablesGE.changeState('puzzle_revealed', {source: 'processing_solve_attempt'});
+				} else {
+					this.#stateVariablesGE.changeState('awaiting_spin', {source: 'state:processing_solve_attempt -> wrong guess'});
+					this.#teamManager.nextTurn(); //@@@must check the state: should be awaiting_spin
+				}
+				
+			});
+
+			this.#eventSystemGE.on('state:puzzle_revealed', (data) => {
+				if (data.source == 'processing_letter' || data.source == 'processing_solve_attempt') {
+					this.#handlePuzzleCorrectlySolved(); //update scores and UI incl confetti
+				}
+				if (data.source == '#revealBtn') {
+					this.#eventSystemGE.emit('ui_puzzleRevealedByGivingUp');
+				}
+				//if (data?.source == came from direct solution or from last letter: handle correct; came from give up: handle otherwise)
+				this.#puzzleManager.revealAll();
+				
+			});
         }
 
 		//post-condition: will return the state change parameter, and will change the team if needed
@@ -795,19 +890,19 @@ class StateVariables {
                 this.#teamManager.bankruptCurrentTeam();
                 this.#teamManager.nextTurn();
                 this.#eventSystemGE.emit('gameMessage', 'Bankrupt! Next team.');
-                return ('awaiting_spin');
+                return (false);
             }
 
             if (/LOSE\s*TURN/i.test(value)) {
                 this.#teamManager.nextTurn();
                 this.#eventSystemGE.emit('gameMessage', 'Lose your turn! Next team.');
-                return ('awaiting_spin');
+                return (false);
             }
 
             if (/DOUBLE/i.test(value)) {
                 this.#teamManager.setPendingMultiplier(2);
                 this.#eventSystemGE.emit('gameMessage', 'DOUBLE! Choose a consonant.');
-                return ('awaiting_letter');
+                return (true);
             }
 
             const points = parseInt(value, 10);
@@ -815,11 +910,11 @@ class StateVariables {
                 this.#teamManager.setPendingPoints(points);
                 this.#eventSystemGE.emit('gameMessage', 
                     `Landed on ${points}. Choose a ${this.#settings.requireConsonants ? 'consonant' : 'letter'}.`);
-                return ('awaiting_letter');
+                return (true);
             }
 
             this.#teamManager.nextTurn(); //fallback code: should not reach here
-			return ('awaiting_spin');
+			return (false);
         }
 
 		//precondition: currentState: should be 'awaiting_letter' - console check
@@ -827,8 +922,8 @@ class StateVariables {
         #handleLetterGuess(letter) {
             const count = this.#puzzleManager.checkLetterGuessAgainstPhrase(letter); //count: how many occurrences
             this.#keyboardManager.updateGuessedLettersKM(this.#puzzleManager.guessedLettersPM);
-            
-            if (count > 0) { //@@@careful about interactions with special segments
+
+            if (count > 0) { 
                 const points = this.#teamManager.addPendingPointsToCurrentTeam(count); 
                 if (this.#settings.showLetterCounts) {
                     this.#eventSystemGE.emit('gameMessage', 
@@ -838,76 +933,63 @@ class StateVariables {
                         `${count > 1 ? 'Nice!' : 'Good!'} Spin again or solve.`);
                 }
             } else {
-                this.#teamManager.nextTurn();
+                this.#teamManager.nextTurn(); //@@@what makes state change??
 				this.#eventSystemGE.emit('gameMessage', `${letter}: No matches. Next team.`);
             }
-        }
-        
-		//@@@use StateVariables as driver: change state to "revealed"
-        #handlePuzzleCorrectlySolved() {
-            // Add bonus points
-            this.#teamManager.addPendingPointsToCurrentTeam(0); // Reset pending points
-            this.#teamManager.addInstantPointsToCurrentTeam(1000); //@@@this won't update scores: should not have access to specific team
-															//@@@OOP: allow access via TeamManager, allow parameters to update specific one
-															//maybe code to pass an object: {teamIndex, points}
-			//this.#eventSystemGE.emit('scoreUpdated');
 
-            this.#puzzleManager.revealAll();
-            this.#keyboardManager.disableKB();
-            this.#stateVariablesGE.changeState('revealed');
-            
+			const returnObj = {
+				isSolved: this.#puzzleManager.isSolved
+			};
+			return returnObj;
+        }
+
+        #handlePuzzleCorrectlySolved() {
+            this.#teamManager.setPendingPoints(0); // Reset pending points
+            this.#teamManager.addInstantPointsToCurrentTeam(1000); 
             this.#eventSystemGE.emit('gameMessage', 
-                `${this.#teamManager.currentTeamName} solved it! +1000 bonus.`); //@@@control through changeState
+                `${this.#teamManager.currentTeamName} solved it! +1000 bonus.`);
             this.#eventSystemGE.emit('confettiBurst');
         }
 
-        startRound(phrase, category, teamNames, wheelSegments) {
+		//@@@should return true/false: false = fails some validity check
+        #startRound({phrase, category, teamNames, wheelSegments}) {
             // Update settings
             if (wheelSegments) {
-                this.#settings.wheelSegments = wheelSegments; //@@@settings now part of StateVariables??
+                this.#settings.wheelSegments = wheelSegments;
             }
-            
+			
+			console.log("team names are: ", teamNames);
+
             // Initialize teams
             this.#teamManager.initializeTM(teamNames);
-            
-            // Set up puzzle
+
+            //@@@PUZZLE SETUP: ADD OTHER DATA HERE, EG HINTS
             this.#puzzleManager.setPuzzle({phrase, category}); //category is set by the host
-            
+
             // Reset wheel
             this.#wheelManager.initializeWM(
                 this.#settings.wheelSegments,
                 $('#wheel')
             );
-            
+
             // Reset keyboard
             this.#keyboardManager.reset();
             this.#keyboardManager.updateGuessedLettersKM(this.#puzzleManager.guessedLettersPM);
-			this.#stateVariablesGE.changeState('awaiting_spin');
             this.#eventSystemGE.emit('gameMessage',
                 `${this.#teamManager.currentTeamName}, start us off — spin the wheel!`);
         }
-        
-		//@@@state-driven: changeState to solved should kick off the process
-        solvePuzzle(guess) {
+
+		//called by state change in GE only
+		//pre: attempted solution; post: only handles true/false, minimal output
+        #processDirectAttemptSolvePuzzle(guess) {
             const normalizedGuess = guess.trim().toUpperCase().replace(/\s+/g, ' ');
             const normalizedPhrase = this.#puzzleManager.phrase.trim().toUpperCase().replace(/\s+/g, ' ');
-
             if (normalizedGuess === normalizedPhrase) {
-                this.#puzzleManager.revealAll();
-                this.#handlePuzzleCorrectlySolved();
                 return true;
             } else {
-                this.#teamManager.nextTurn();
                 this.#eventSystemGE.emit('gameMessage', 'Not quite — next team.');
                 return false;
             }
-        }
-
-        revealPuzzle() {
-            this.#puzzleManager.revealAll();
-            this.#keyboardManager.disableKB();
-            this.#stateVariablesGE.changeState('revealed');
-            this.#eventSystemGE.emit('gameMessage', 'Puzzle revealed. You can start a new round.'); //@@@control through stateVars
         }
 
         clearScores() {
@@ -932,13 +1014,16 @@ class StateVariables {
             this.#setupEventListenersUI();
             this.#setupButtonHandlers();
             this.#updateInitialDisplay();
+			this.#stateVariablesUI.setInitialPageLoadedState();
+			this.#gameEngine.settings.requireConsonants = $('#requireConsonant').is(':checked');
         }
 
         #setupEventListenersUI() {
+			console.log("setting up event listeners");
             this.#eventSystemUI.on('gameMessage', (message) => {
                 $('#turnHint').text(message);
             });
-            
+
             this.#eventSystemUI.on('puzzleUpdated', (data) => {
                 $('#categoryOut').text(data.category || '(none)');
                 this.#renderPuzzle();
@@ -966,92 +1051,95 @@ class StateVariables {
                 this.#renderTeams(this.#gameEngine.teamManager.teams);
             });
 
-            this.#eventSystemUI.on('letterGuessLogicUpdated', () => {
+            this.#eventSystemUI.on('letterGuessLogicUpdated', () => { //emitted by state-driven change in GameEngine
                 this.#renderPuzzle();
             });
-            
-            this.#eventSystemUI.on('puzzleRevealed', () => {
+			
+			//emitted under PuzzleManager.revealAll() which is called whenever the puzzle is solved to ensure full reveal
+            this.#eventSystemUI.on('puzzleRevealAllLogicUpdated', () => {
                 this.#renderPuzzle();
             });
             
             this.#eventSystemUI.on('confettiBurst', () => {
                 this.#triggerConfetti();
             });
-			//@@@one event listener for all "stateChanged": only place so far, does not seem to be needed
+			
+			this.#eventSystemUI.on('ui_puzzleRevealedByGivingUp', () => {
+				this.#eventSystemUI.emit('gameMessage', 'Puzzle revealed. You can start a new round.'); 
+			});
+
+
+			
 			this.#eventSystemUI.on('stateChanged', () => {
 				const state = this.#gameEngine.stateVariables;
 				$('#spinBtn').prop('disabled', !state.canSpin);
-				$('#keyboard').prop('disabled', !state.canGuessLetters); //@@@is this duplicated??
+				$('.key').prop('disabled', !state.canGuessLetters);
 				$('#solveInput').prop('disabled', !state.canSolve);
 				//@@@canSolve not working
 			});
         }
-        
+
         #setupButtonHandlers() {
-			
-			
-			//@@@Start button
+			//@@@Start button: needs state-driven?
             $('#startBtn').on('click', () => {
                 const phrase = $('#hostPhrase').val().trim() || this.#gameEngine.settings.defaultPhrase;
                 const category = $('#hostCategory').val().trim();
-                const teams = $('#hostTeams').val().trim().split(',').filter(name => name.trim());
-                const segments = $('#hostSegments').val().trim().split(',').filter(seg => seg.trim());
-                this.#gameEngine.startRound(phrase, category, teams, segments);
+                const teamNames = $('#hostTeams').val().trim().split(',').filter(name => name.trim());
+                const wheelSegments = $('#hostSegments').val().trim().split(',').filter(seg => seg.trim());
+				this.#stateVariablesUI.changeState('loading_new_question', 
+					{source: 'UI: setupButtonHandlers', phrase, category, teamNames, wheelSegments});
             });
-
-
 
             // Spin button
             $('#spinBtn').on('click', () => {
 				this.#stateVariablesUI.changeState('wheel_spin_start');
             });
 			// Keyboard listeners: see KeyboardManager class
-            
-            // Reveal button
-            $('#revealBtn').on('click', () => {
-                this.#gameEngine.revealPuzzle();
-            });
-            
+
             // Clear scores button
             $('#clearScoresBtn').on('click', () => {
                 this.#gameEngine.clearScores();
             });
-            
+
             // Solve buttons
             $('#solveBtn').on('click', () => {
                 $('#solveInput').focus();
             });
-            
-			//@@@state-driven: put the change of state here, awaiting_solve
+
             $('#checkSolveBtn').on('click', () => {
-                const guess = $('#solveInput').val();
-                this.#gameEngine.solvePuzzle(guess);
+				const guess = $('#solveInput').val();
+				this.#stateVariablesUI.changeState('processing_solve_attempt', {guess});
             });
-            
+
             $('#solveInput').on('keydown', (e) => {
                 if (e.key === 'Enter') {
                     const guess = $('#solveInput').val();
-                    this.#gameEngine.solvePuzzle(guess);
+                    this.#stateVariablesUI.changeState('processing_solve_attempt', {guess});
                 }
             });
-            
+			
+			// Reveal button (for giving up)
+            $('#revealBtn').on('click', () => {
+				this.#stateVariablesUI.changeState('puzzle_revealed', {source: '#revealBtn'});
+            });
+
             // Settings toggle
             $('#hideSettingsBtn').on('click', () => {
                 $('#hostControls').toggle();
                 const isVisible = $('#hostControls').is(':visible');
                 $('#hideSettingsBtn').text(isVisible ? 'Hide Settings' : 'Show Settings');
             });
-            
+
             // Settings checkboxes
             $('#requireConsonant').on('change', (e) => {
                 this.#gameEngine.settings.requireConsonants = e.target.checked;
             });
-            
+
             $('#showLetterCounts').on('change', (e) => {
                 this.#gameEngine.settings.showLetterCounts = e.target.checked;
             });
         }
-        
+
         #renderPuzzle() {
             const $puzzle = $('#puzzle');
             $puzzle.empty();
@@ -1152,9 +1240,6 @@ class StateVariables {
 	// Custom duration
 	//N.toast("Team Blue's turn", 5000);
 	
-	
-	
-	
     try {
         const gameEngine = new GameEngine();
         const uiController = new UIController(gameEngine);
@@ -1162,7 +1247,7 @@ class StateVariables {
         // Make gameEngine accessible for debugging
         window.gameEngine = gameEngine;
         
-        gameEngine.initializeGE();
+        gameEngine.initializeOnPageLoadGE();
         uiController.initializeUI();
         
         console.log('ESL Wheel of Fortune initialized successfully');

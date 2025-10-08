@@ -18,7 +18,11 @@ body{
   color:var(--text);
   line-height:1.35;
 }
-.wrap{max-width:1200px; margin:0 auto; padding:24px;}
+
+
+.wrap{max-width:1400px; margin:0 auto; padding:24px;} /** MAJOR SIZE PARAMETER: ORIGINAL: 1200px **/
+
+
 header{
   display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:18px;
 }
@@ -72,7 +76,7 @@ header{
 }
 
 .wheel-column {
-    flex: 0 0 420px;
+    flex: 0 0 420px; /** POTENTIALLY IMPORTANT SIZE PARAMETER?? ORIGINAL:420px, POSSIBLE CHANGE: 520px **/
 }
 
 .game-controls-container {
@@ -149,7 +153,13 @@ header{
 
 .wheelBox{display:grid; place-items:center; padding:12px;}
 .pointer{width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;border-top:28px solid var(--warn); filter: drop-shadow(0 3px 0 #0008); margin-bottom:6px}
-.wheel{width:min(92vw, 400px); aspect-ratio:1; display:block;}
+.wheel{width:min(92vw, 520px); aspect-ratio:1; display:block;} /** MAJOR SIZE PARAMETER: ORIGINAL: 400px **/
+
+
+
+
+
+
 
 .spinBtn{
 	appearance:none; 
