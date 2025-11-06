@@ -32,10 +32,6 @@
 
 
 
-
-
-
-
 <div class="grid">
   <!-- Wheel + Game Board side by side -->
   <div class="wheel-and-game">
@@ -60,20 +56,14 @@
         <div id="puzzle" class="puzzle" aria-live="polite"></div>
       </div>
       <div class="row" style="margin-top:8px">
-        <button class="btn" id="solveBtn">Solve</button>
+        <button class="btn" id="focusSolveWindowBtn">Solve</button>
         <input id="solveInput" type="text" placeholder="Type full phrase to solve" class="grow" />
-        <button class="btn good" id="checkSolveBtn">Check</button>
+        <button class="btn good" id="checkSolveAttemptBtn">Check</button>
       </div>
       <div class="hint" id="turnHint" style="margin-top:8px">Use controls below to start.</div>
       <div id="keyboard" class="keyboard" style="margin-top:8px"></div>
     </section>
   </div>
-
-
-
-
-
-
 
 
 
@@ -87,15 +77,13 @@
 
 
         <div class="flex" style="margin-top:10px">
-          <button class="btn good" id="startBtn">Start / Reset Round</button>
           <button class="btn secondary" id="revealBtn">Reveal Answer</button>
           <button class="btn bad" id="clearScoresBtn">Clear Scores</button>
-          <span class="hint">Tip: Click "Start / Reset" after changing settings.</span>
         </div>
         <details style="margin-top:12px">
           <summary>Options</summary>
           <div class="flex" style="margin-top:10px">
-            <label class="seg"><input type="checkbox" id="requireConsonant" checked style="margin-right:8px">Require consonants on spins</label>
+            <label class="seg"><input type="checkbox" id="requireConsonant" style="margin-right:8px">Require consonants on spins</label>
             <label class="seg"><input type="checkbox" id="showLetterCounts" style="margin-right:8px">Show letter counts on reveal</label>
           </div>
           <div class="hint" style="margin-top:8px">Vowels are allowed when solving; when this is on, students can only choose consonants after a spin (classic rules).</div>
@@ -124,11 +112,18 @@
 					  <div class="filter-group">
 						<label class="small">Categories:</label>
 						<div class="checkbox-group">
-						  <label class="seg"><input type="checkbox" name="category" value="Proverb" checked> Proverbs</label>
-						  <label class="seg"><input type="checkbox" name="category" value="Movie Title"> Movie Titles</label>
-						  <label class="seg"><input type="checkbox" name="category" value="Idiom"> Idioms</label>
-						  <label class="seg"><input type="checkbox" name="category" value="Common Phrase"> Common Phrases</label>
-						  <label class="seg"><input type="checkbox" name="category" value="Animal"> Animals</label>
+						  <label class="seg"><input type="checkbox" name="category" value="all" checked>ALL (includes categories not listed individually)</label>
+						</div>
+						<div class="checkbox-group">
+						  <label class="seg"><input type="checkbox" name="category" value="proverb" checked> Proverbs</label>
+						  <label class="seg"><input type="checkbox" name="category" value="movie_title"> Movie Titles</label>
+						  <label class="seg"><input type="checkbox" name="category" value="idiom" checked> Idioms</label>
+						  <label class="seg"><input type="checkbox" name="category" value="phrase" checked> Common Phrases</label>
+						  <label class="seg"><input type="checkbox" name="category" value="animal" checked> Animals</label>
+						  <label class="seg"><input type="checkbox" name="category" value="science" checked> Science</label>
+						  <label class="seg"><input type="checkbox" name="category" value="sport" checked> Sport</label>
+						  <label class="seg"><input type="checkbox" name="category" value="general_knowledge" checked> 
+									General Knowledge</label>
 						</div>
 					  </div>
 
@@ -169,7 +164,13 @@
 					  <!-- Manual override -->
 					  <details style="margin-top:12px">
 						<summary>Manual Question Input</summary>
+						
 						<div style="margin-top:8px">
+							<button class="btn good" id="startBtn">Load Custom Question</button>
+						</div>
+						
+						<div style="margin-top:8px">
+						
 						  <label class="small">Custom phrase</label>
 						  <input id="hostPhrase" type="text" placeholder="Or type your own phrase here" />
 						</div>
@@ -177,28 +178,10 @@
 						  <label class="small">Category <span class="muted">(optional)</span></label>
 						  <input id="hostCategory" type="text" placeholder="Proverb / Movie / etc." />
 						</div>
+
+						
 					  </details>
 					</div>
-
-<!--         <div class="hostGrid">
-          <div>
-            <label class="small">Puzzle phrase (letters, spaces & punctuation OK)</label>
-            <input id="hostPhrase" type="text" placeholder="e.g., A STITCH IN TIME SAVES NINE" />
-          </div>
-          <div>
-            <label class="small">Category <span class="muted">(optional)</span></label>
-            <input id="hostCategory" type="text" placeholder="Proverb / Idiom / Food / Places ..." />
-          </div>
-          <div>
-            <label class="small">Teams (comma‑separated)</label>
-            <input id="hostTeams" type="text" value="Red, Blue, Green" />
-          </div>
-          <div>
-            <label class="small">Wheel Segments (comma‑separated; use BANKRUPT, LOSE TURN, DOUBLE)</label>
-            <input id="hostSegments" type="text" value="100,200,300,400,500,600,700,800,900,BANKRUPT,LOSE TURN,DOUBLE" />
-          </div>
-        </div>
-		 -->
 		
 		
       </div>

@@ -1,11 +1,8 @@
-//@@@BUGFIX: wrong guess at start of game: everything gets blocked
-//@@@bugfix: wrong guess before load: enables stuff, guess should not be allowed if game active
-//@@@bugfix: double isn't working
-//@@@DOUBLE: CHOOSE A CONS, EVEN WHEN ALLOWING VOWELS
 //@@@feature: make sure answer uppercase
-//@@@slow and dramatic end to the wheel spin
 //@@@combine different "toast" functions, one that takes text, plus mood (good, bad, neutral)
 //@@@loading_new_question is two events: load_teams and load_question
+//@@@add cost of a vowel, add exercises for pronunciation etc
+//@@@new round: clear confetti and don't wipe scores
 
 
 
@@ -60,7 +57,7 @@ $(document).ready(function() {
 		#maxWrongSolves = 0; // 0 = unlimited (not implemented)
         #showLetterCounts = false;
 		#vowelCost = 0; //not implemented
-		#solveBonusPoints = 1000; //not implemented?
+		#solveBonusPoints = 2000; //not implemented?
         #wheelSegments = ["100","DOUBLE","300","900","500","888","BANKRUPT","999","400","700","LOSE TURN","200"];
         #defaultPhrase = "TIME";
         //#defaultPhrase = "A STITCH IN TIME SAVES NINE";
@@ -151,10 +148,14 @@ class StateVariables {
     get canSpin() { return this.#currentState === 'awaiting_spin'; }
     get isWheelSpinningNow() { return this.#currentState === 'wheel_spinning_now'; }
     get canGuessLetters() { return this.#currentState === 'awaiting_letter'; }
-    get canSolve() { return ['awaiting_spin', 'awaiting_letter'].includes(this.#currentState); }
+    get canSolve() { 
+		console.log("state: ", this.#currentState);
+		console.log("includes test: ", ['awaiting_spin', 'awaiting_letter'].includes(this.#currentState));
+		return ['awaiting_spin', 'awaiting_letter'].includes(this.#currentState); 
+	}
 		//@@@canSolve() not working properly yet
     get isGameActive() { return !['awaiting_first_question', 'loading_new_question', 'puzzle_revealed'].includes(this.#currentState); }
-    get isInputEnabled() { return this.canSolve; }
+    get isInputEnabled() { return this.canSolve; } //@@@@@this is not desirable: should be independent of canSolve since logically different
 	
 	
 	setInitialPageLoadedState() {
@@ -802,13 +803,6 @@ class StateVariables {
             );
             
             this.#keyboardManager.initializeKM($('#keyboard'));
-            
-            // Set up initial puzzle
-			//@@@@@*******DELETE THIS, THERE IS NO PUZZLE
-            //this.#puzzleManager.setPuzzle({
-                //phrase: this.#settings.defaultPhrase,
-                //category: 'proverb',
-            //});
         }
 
         #setupEventListenersGE() {
@@ -884,22 +878,23 @@ class StateVariables {
 				}
 				//if (data?.source == came from direct solution or from last letter: handle correct; came from give up: handle otherwise)
 				this.#puzzleManager.revealAll();
-				
+
 			});
         }
 
-		//NEW METHOD FOR LOADING QUESTIONS FROM OUTSIDE
+		//PRE: QUESTION (PHRASE) HAS BEEN CHOSEN)
+		//POST: STATE CHANGED TO loading_new_question WHICH SHOULD PROCEED TO awaiting_spin.
 		loadQuestionFromBank(data) {
 			console.log("GameEngine: Loading question from bank", data.phrase);
 			const phrase = data.phrase;
 			const category = data.category;
 			const teamNames = data.teamNames;
 			const wheelSegments = data.wheelSegments;
-			
+
 			// TODO: LATER - Separate question loading from full game reset
 			// For now, we reset everything for simplicity
 			// FUTURE: Should preserve teams/scores and just change puzzle
-			
+
 			this.#stateVariablesGE.changeState('loading_new_question', 
 					{source: 'loadQuestionFromBank, ie from databank', phrase, category, teamNames, wheelSegments});
 
@@ -1004,9 +999,9 @@ class StateVariables {
 
         #handlePuzzleCorrectlySolved() {
             this.#teamManager.setPendingPoints(0); // Reset pending points
-            this.#teamManager.addInstantPointsToCurrentTeam(1000); 
+            this.#teamManager.addInstantPointsToCurrentTeam(this.settings.solveBonusPoints); 
             this.#eventSystemGE.emit('gameMessage', 
-                `${this.#teamManager.currentTeamName} solved it! +1000 bonus.`);
+                `${this.#teamManager.currentTeamName} solved it! +2000 bonus.`);
             this.#eventSystemGE.emit('confettiBurst');
         }
 		
@@ -1051,9 +1046,7 @@ class StateVariables {
         }
 
         #setupEventListenersUI() {
-			console.log("setting up event listeners");
             this.#eventSystemUI.on('gameMessage', (message) => {
-                //$('#turnHint').text(message);
 				N.toast(message);
             });
 
@@ -1107,7 +1100,7 @@ class StateVariables {
 				const state = this.#gameEngine.stateVariables;
 				$('#spinBtn').prop('disabled', !state.canSpin);
 				$('.key').prop('disabled', !state.canGuessLetters);
-				$('#solveInput').prop('disabled', !state.canSolve);
+				$('#solveInput, #checkSolveAttemptBtn, #focusSolveWindowBtn').prop('disabled', !state.canSolve);
 				//@@@canSolve not working
 			});
         }
@@ -1135,11 +1128,11 @@ class StateVariables {
             });
 
             // Solve buttons
-            $('#solveBtn').on('click', () => {
+            $('#focusSolveWindowBtn').on('click', () => {
                 $('#solveInput').focus();
             });
 
-            $('#checkSolveBtn').on('click', () => {
+            $('#checkSolveAttemptBtn').on('click', () => {
 				const guess = $('#solveInput').val();
 				this.#stateVariablesUI.changeState('processing_solve_attempt', {guess});
             });
@@ -1253,8 +1246,12 @@ class StateVariables {
             $('#hostTeams').val('Red, Blue, Green');
             $('#hostSegments').val(this.#gameEngine.settings.wheelSegments.join(','));
             
-            // Disable spin button initially
+            // Disable interactions initially
+			// @@@should also disable keyboard here, not in keybaord manager, or wherever this is done?
             $('#spinBtn').prop('disabled', true);
+            $('#checkSolveAttemptBtn').prop('disabled', true);
+            $('#focusSolveWindowBtn').prop('disabled', true);
+			console.log("updateInitialDisplay(): should have deactivated solve btn");
         }
     }
 
@@ -1277,8 +1274,8 @@ class StateVariables {
         const gameEngine = new GameEngine();
         const uiController = new UIController(gameEngine);
         
-        // Make gameEngine accessible for debugging
-        window.gameEngine = gameEngine;
+        //MAIN GLOBAL VARIABLE, SO LOOK FOR THIS AS THE KEY INTERFACE
+        window.gameEngine = gameEngine; 
         
         gameEngine.initializeOnPageLoadGE();
         uiController.initializeUI();
