@@ -1,8 +1,11 @@
+//by Dem Nisbet, aka demneptune on Github
 //@@@feature: make sure answer uppercase
 //@@@combine different "toast" functions, one that takes text, plus mood (good, bad, neutral)
 //@@@loading_new_question is two events: load_teams and load_question
 //@@@add cost of a vowel, add exercises for pronunciation etc
-//@@@new round: clear confetti and don't wipe scores
+//@@@non-letters: print literally, eg add apostrophes onscreen, this is handled by PuzzleManager: getDisplayState()
+//new round: put cumulative scores up top
+//FEATURE: CHOOSE WHICH TEAM STARTS THE ROUND
 
 
 
@@ -63,15 +66,16 @@ $(document).ready(function() {
         //#defaultPhrase = "A STITCH IN TIME SAVES NINE";
         
 		
+		//WARNING: vast majority not implemented yet
 		get numberOfTeams() { return this.#numberOfTeams; } //not implemented
 		get solveBonusPoints() { return this.#solveBonusPoints; } //not implemented
 		get vowelCost() { return this.#vowelCost; } //not implemented
 		get maxWrongSolves() { return this.#maxWrongSolves; } //not implemented
 		// ===== SETTERS FOR UNIMPLEMENTED METHODS =====
 		setNumberOfTeams(count) { this.#numberOfTeams = Math.max(1, count); } //not implemented
-		setSolveBonusPoints(points) { this.#solveBonusPoints = Math.max(0, points); } //@@@not implemented
-		setVowelCost(cost) { this.#vowelCost = Math.max(0, cost); } //@@@not implemented
-		setMaxWrongSolves(max) { this.#maxWrongSolves = Math.max(0, max); } //@@@not implemented
+		setSolveBonusPoints(points) { this.#solveBonusPoints = Math.max(0, points); } //not implemented
+		setVowelCost(cost) { this.#vowelCost = Math.max(0, cost); } //not implemented
+		setMaxWrongSolves(max) { this.#maxWrongSolves = Math.max(0, max); } //not implemented
 		
         get requireConsonants() { return this.#requireConsonants; }
         set requireConsonants(value) { this.#requireConsonants = Boolean(value); }
@@ -91,10 +95,10 @@ $(document).ready(function() {
 
 
 /*
-@@@can add extra dummy states to show entering and leaving a state
 Core States:
+	'zero_state' → dummy state to make sure there is a state change to ensure the correct housekeeping at the start
 	'awaiting_first_question' → Page loaded, no problem ready
-	'loading_new_question' → @@@proposed state, when clicking any "load" button, can add source of click
+	'loading_new_question' → proposed state, when clicking any "load" button, can add source of click
 	'awaiting_spin' → Wheel stopped, can spin again
 	'wheel_spin_start' → Wheel is about to start but not spinning
 	'wheel_spinning_now' → Wheel is physically spinning
@@ -108,6 +112,7 @@ Core States:
 
 class StateVariables {
     // ===== STATE TRANSITIONS =====
+	#eventSystemSV;
     #currentState;
 	#validStates;
 	#validTransitions;
@@ -116,14 +121,16 @@ class StateVariables {
     #currentTurn; //not implemented: not needed here (not a major transition state)
     #pendingPointsSV = 0; //not implemented
     #pendingMultiplierSV = 1; //not implemented
-    #eventSystemSV;
+    
 
     constructor(eventSystem) {
         this.#eventSystemSV = eventSystem;
+		this.#currentState = 'zero_state';
 		this.#validStates = new Set(
-			['awaiting_first_question', 'loading_new_question', 'awaiting_spin', 'wheel_spin_start', 'wheel_spinning_now', 'wheel_spin_complete', 'awaiting_letter', 'processing_letter', 'processing_solve_attempt', 'puzzle_revealed']
+			['zero_state', 'awaiting_first_question', 'loading_new_question', 'awaiting_spin', 'wheel_spin_start', 'wheel_spinning_now', 'wheel_spin_complete', 'awaiting_letter', 'processing_letter', 'processing_solve_attempt', 'puzzle_revealed']
 		);
 		this.#validTransitions = new Map([
+			['zero_state', new Set(['awaiting_first_question'])], //dummy state goes to waiting state
 			['awaiting_first_question', new Set(['loading_new_question'])], //waiting state
 			['loading_new_question', new Set(['awaiting_first_question', 'puzzle_revealed', 'awaiting_spin'])], //if it fails: reverts
 			['awaiting_spin', new Set(['wheel_spin_start', 'processing_solve_attempt'])], //waiting state
@@ -144,25 +151,21 @@ class StateVariables {
     getCurrentStateDebug() { return this.#currentState; } //special method for debugging; should not be needed for logic
 
     // ===== DERIVED GETTERS =====
-    get isInitialized() { return this.#currentState !== undefined; }
+    get isInitialized() { return this.#currentState !== 'zero_state'; }
     get canSpin() { return this.#currentState === 'awaiting_spin'; }
     get isWheelSpinningNow() { return this.#currentState === 'wheel_spinning_now'; }
     get canGuessLetters() { return this.#currentState === 'awaiting_letter'; }
     get canSolve() { 
-		console.log("state: ", this.#currentState);
+		console.log("In get canSolve(), state: ", this.#currentState);
 		console.log("includes test: ", ['awaiting_spin', 'awaiting_letter'].includes(this.#currentState));
 		return ['awaiting_spin', 'awaiting_letter'].includes(this.#currentState); 
 	}
-		//@@@canSolve() not working properly yet
     get isGameActive() { return !['awaiting_first_question', 'loading_new_question', 'puzzle_revealed'].includes(this.#currentState); }
-    get isInputEnabled() { return this.canSolve; } //@@@@@this is not desirable: should be independent of canSolve since logically different
+    get isInputEnabled() { return this.canSolve; } //warning: not desirable: should be independent of canSolve since logically different
 	
-	
-	setInitialPageLoadedState() {
-		this.#currentState = 'awaiting_first_question';
-	}
 
     // ===== STATE TRANSITION METHOD =====
+		//syntax works like this: .changeState(newState) calls this function, and this repackages and calls eventSystem
     changeState(newState, data = {}) {
         const oldState = this.#currentState;
 
@@ -180,7 +183,7 @@ class StateVariables {
         this.#currentState = newState;
 		console.log(`State: ${oldState} → ${newState}`, data);
         
-        // Emit events: state-driven events must only be emitted here, added with: .on(event, callback)
+        //Emit events: state-driven events all emitted here, added with: .on(event, callback)
         if (this.#eventSystemSV) {
             this.#eventSystemSV.emit('stateChanged', { //one event with different actions attached, all in UIController atm.
                 oldState,
@@ -188,7 +191,7 @@ class StateVariables {
                 data, //same parameter passed in, included with zero assumptions
             });
 
-            this.#eventSystemSV.emit(`state:${newState}`, { //@@@DIFF EVENT PER STATE, EACH MUST BE ATTACHED
+            this.#eventSystemSV.emit(`state:${newState}`, { 
                 oldState,
                 ...data //elongate and repackage as a new object
             });
@@ -308,7 +311,7 @@ class StateVariables {
             this.#currentTurnIndex = 0;
             this.#pendingPoints = 0;
             this.setPendingMultiplier(1);
-			//@@@several methods with events that are not state-driven, mostly UI updaters
+			//several methods with events that are not state-driven, mostly UI updaters
             this.#eventSystemTM.emit('teamsUpdated', this.#teams); //set in UIController and emitted here and in resetAllScores()
             this.#eventSystemTM.emit('turnChanged', this.#getCurrentTeam());
             this.#eventSystemTM.emit('scoreUpdated');
@@ -333,7 +336,7 @@ class StateVariables {
             this.#getCurrentTeam().addPoints(points);
 
 			
-			//@@@QUICK FIX ONLY: IF "DOUBLE": PENDING WILL BE ZERO; SO DON'T CHANGE MULTIPLIER
+			//WARNING: QUICK FIX ONLY: IF "DOUBLE": PENDING WILL BE ZERO; SO DON'T CHANGE MULTIPLIER
 			//SHOULD WORK BUT DEPENDS ON PROGRAM LOGIC ELSEWHERE (nextTurn() CLEARS THINGS)
 			if (this.#pendingPoints != 0) {
 				this.#pendingPoints = 0;
@@ -386,7 +389,7 @@ class StateVariables {
         get category() { return this.#category; }
         get guessedLettersPM() { return new Set(this.#guessedLettersPM); }
         get isRevealed() { return this.#revealedAll; }
-        get isSolved() { //@@@test out with different upper/lowercase situations
+        get isSolved() { //@@@test out with different upper/lowercase situations: clearly working
             const upperPhrase = this.#phrase.toUpperCase();
             for (const char of upperPhrase) {
                 if (/[A-Z]/.test(char) && !this.#guessedLettersPM.has(char)) {
@@ -438,22 +441,43 @@ class StateVariables {
             this.#eventSystemPM.emit('puzzleRevealAllLogicUpdated'); 
         }
         
-        getDisplayState() {
+		
+		//@@@called once only by UIController.#renderPuzzle
+			//renderPuzzle is used to update display state in response to non-state events
+			//used to add spaces, can use for punctuation, indeed any non-letter: TO ADD APOSTROPHES
+			//CURRENT TYPES: 'space' 'revealed' 'hidden', now adding 'punctuation'
+		getDisplayState() {
             const result = [];
             for (const char of this.#phrase) {
                 const upperChar = char.toUpperCase();
-                if (!/[A-Z]/.test(upperChar)) {
-                    result.push({ type: 'space', char: char });
+				if (upperChar === ' ') {
+					result.push({type: 'space', char: char});
+                } else if (!/[A-Z]/.test(upperChar)) {
+                    result.push({ type: 'punctuation', char: char });
                 } else if (this.#guessedLettersPM.has(upperChar) || this.#revealedAll) {
-                    result.push({ type: 'revealed', char: char }); //@@@what does this do: type 'revealed' - what is the program flow?
+                    result.push({ type: 'revealed', char: char }); 
                 } else {
                     result.push({ type: 'hidden', char: '•' });
                 }
             }
             return result;
         }
+        /*getDisplayState() {
+            const result = [];
+            for (const char of this.#phrase) {
+                const upperChar = char.toUpperCase();
+                if (!/[A-Z]/.test(upperChar)) {
+                    result.push({ type: 'space', char: char });
+                } else if (this.#guessedLettersPM.has(upperChar) || this.#revealedAll) {
+                    result.push({ type: 'revealed', char: char }); 
+                } else {
+                    result.push({ type: 'hidden', char: '•' });
+                }
+            }
+            return result;
+        }*/
 		
-		//@@@not called
+		//WARNING: not called
         //reset PuzzleManager
         reset() {
             this.#guessedLettersPM.clear();
@@ -610,8 +634,6 @@ class StateVariables {
 				g.appendChild(wedge);
 				g.appendChild(labelGroup);
 				//END OF NEW CODE
-				
-                
 
                 this.#svgElement[0].appendChild(g);
             }
@@ -658,7 +680,6 @@ class StateVariables {
                 const result = this.#getCurrentSegment();
 				console.log("wheel spin: result, ie. getCurrentSegment(), = ", result);
 				this.#stateVariablesWM.changeState('wheel_spin_complete', result); //must be done here in WM
-													//@@@WHY CAN WE SEND "RESULT" AS A PARAMETER, SURELY NEEDS {} OBJECT SYNTAX??
             };
 
             this.#svgElement.on('transitionend', onEnd); //fundamental svg event, must be called here
@@ -677,9 +698,9 @@ class StateVariables {
             };
         }
 		
-		//@@@not called
+		//WARNING: not called
         //reset WheelManager
-        reset() { //@@@ensure this has the correct state
+        reset() { 
             this.#rotation = 0;
             if (this.#svgElement) {
                 this.#svgElement.css('transition', 'transform 0s');
@@ -693,7 +714,7 @@ class StateVariables {
         #element = null;
         #allowVowels = false;
         #guessedLettersKM = new Set();
-        //#eventSystemKM; //@@@used once for letter selected: get rid of this, not needed
+        //#eventSystemKM; //not needed
 		#stateVariablesKM;
         
         constructor({eventSystem, stateVariables}) {
@@ -704,6 +725,11 @@ class StateVariables {
         initializeKM(element) {
             this.#element = element;
             this.#createKeys();
+            this.#disableKB();
+        }
+		//called once at start of round
+        reset() {
+            this.#guessedLettersKM.clear();
             this.#disableKB();
         }
 
@@ -719,17 +745,19 @@ class StateVariables {
                 const key = $(`<button class="key">${letter}</button>`);
                 key.prop('disabled', true);
                 key.on('click', () => {
-					this.#stateVariablesKM.changeState('processing_letter', {letter});
+					this.#stateVariablesKM.changeState('processing_letter', {letter}); 
+									//WARNING: KEYPRESS CAUSES CHANGE OF STATE: DIFFERENT TO WHEEL MANAGER, BUT THAT IS ONLY ONE BUTTON
                 });
                 this.#element.append(key);
             });
         }
 
+
+		//ENABLEKB CALLED ONCE BY CHANGESTATE:AWAITING_LETTER
         enableKB(allowVowels = false) {
             this.#allowVowels = allowVowels;
             this.#updateKeyStates();
         }
-
         #disableKB() { //can we make this private?? make the public call a state change
             if (this.#element) {
                 this.#element.find('.key').prop('disabled', true);
@@ -756,18 +784,13 @@ class StateVariables {
             });
         }
 		
-		//called once at start of round
-        //reset KeyboardManager
-        reset() {
-            this.#guessedLettersKM.clear();
-            this.#disableKB();
-        }
+
     }
 
 //======================================== GAME ENGINE ========================================
     class GameEngine {
 
-		#eventSystemGE = new EventSystem();
+		#eventSystemGE = new EventSystem(); //THIS IS THE REAL EVENTSYSTEM INSTANCE (GETS PASSED TO OTHERS)
 		#settings = new GameSettings();
 		#teamManager;
 		#puzzleManager;
@@ -779,7 +802,7 @@ class StateVariables {
             this.#teamManager = new TeamManager(this.#eventSystemGE);
             this.#puzzleManager = new PuzzleManager(this.#eventSystemGE);
             this.#setupEventListenersGE();
-			this.#stateVariablesGE = new StateVariables(this.#eventSystemGE);
+			this.#stateVariablesGE = new StateVariables(this.#eventSystemGE); //THIS IS THE REAL STATEVARIABLES INSTANCE
         }
         
 		//getters are typically called by UIController
@@ -793,7 +816,7 @@ class StateVariables {
         get stateVariables() { return this.#stateVariablesGE; }
 
         initializeOnPageLoadGE() {
-            if (this.#stateVariablesGE.isInitialized ) return;
+            if (this.#stateVariablesGE.isInitialized) return;
             this.#wheelManager = new WheelManager({eventSystem: this.#eventSystemGE, stateVariables: this.#stateVariablesGE});
 			this.#keyboardManager = new KeyboardManager({eventSystem: this.#eventSystemGE, stateVariables: this.#stateVariablesGE});
             // Initialize components with DOM elements
@@ -816,12 +839,13 @@ class StateVariables {
 					teamNames: data.teamNames,
 					wheelSegments: data.wheelSegments,
 				});
-				this.#stateVariablesGE.changeState('awaiting_spin', {source: 'loading_new_question'}); //@@@@must check load complete: startRound must return true/false
+				this.#stateVariablesGE.changeState('awaiting_spin', {source: 'loading_new_question'}); 
+				this.#eventSystemGE.emit('clearConfetti'); //clear confettiBurst
 			});
 
 			this.#eventSystemGE.on('state:awaiting_spin', (data) => {
-				console.log("initialising: source: ", data.source);
-				//@@@@@handle activation of wheel button, deactivation of keyboard here????
+				//console.log("entering state <awaiting_spin>: source: ", data.source);
+				//dummy listener since activation/deactivation handled automatically by the change of state method
 			});
 			
 			this.#eventSystemGE.on('state:wheel_spin_start', () => {
@@ -831,7 +855,6 @@ class StateVariables {
 				this.#wheelManager.spinWM();
 			});
 			
-			//@@@this needs more care: follow state changes
             this.#eventSystemGE.on('state:wheel_spin_complete', (result) => { //special event triggered when wheel actually stops
                 const isSuccessfulSpin = this.#handleWheelResult(result); 
 				const newState = isSuccessfulSpin ? 'awaiting_letter' : 'awaiting_spin';
@@ -840,7 +863,7 @@ class StateVariables {
 
 			this.#eventSystemGE.on('state:awaiting_letter', () => {
 				const allowVowels = !this.#settings.requireConsonants;
-				this.#keyboardManager.enableKB(allowVowels); 
+				this.#keyboardManager.enableKB(allowVowels); //@@@ONLY CALL TO THIS: TRY TO REPLACE WITH CALL TO UPDATEKEYSTATES
 					//activates keyboard -> allows event listener
 						//event listener attached in KM, which uses the event 'processing_letter'
 			});
@@ -856,7 +879,6 @@ class StateVariables {
 				this.#eventSystemGE.emit('letterGuessLogicUpdated'); //UI updater: renderPuzzle only
             });
 
-			//@@@event must not be called if state not compatible
 			this.#eventSystemGE.on('state:processing_solve_attempt', (data) => {
 				const guess = data.guess;
 				const result = this.#processDirectAttemptSolvePuzzle(guess); //only returns true/false, minimal other response
@@ -864,7 +886,7 @@ class StateVariables {
 					this.#stateVariablesGE.changeState('puzzle_revealed', {source: 'processing_solve_attempt'});
 				} else {
 					this.#stateVariablesGE.changeState('awaiting_spin', {source: 'state:processing_solve_attempt -> wrong guess'});
-					this.#teamManager.nextTurn(); //@@@must check the state: should be awaiting_spin
+					this.#teamManager.nextTurn();
 				}
 				
 			});
@@ -876,7 +898,6 @@ class StateVariables {
 				if (data.source == '#revealBtn') {
 					this.#eventSystemGE.emit('ui_puzzleRevealedByGivingUp');
 				}
-				//if (data?.source == came from direct solution or from last letter: handle correct; came from give up: handle otherwise)
 				this.#puzzleManager.revealAll();
 
 			});
@@ -890,24 +911,16 @@ class StateVariables {
 			const category = data.category;
 			const teamNames = data.teamNames;
 			const wheelSegments = data.wheelSegments;
-
-			// TODO: LATER - Separate question loading from full game reset
-			// For now, we reset everything for simplicity
-			// FUTURE: Should preserve teams/scores and just change puzzle
-
+			//ONLY STATE CHANGE TO LOADING_NEW_QUESTION
 			this.#stateVariablesGE.changeState('loading_new_question', 
 					{source: 'loadQuestionFromBank, ie from databank', phrase, category, teamNames, wheelSegments});
 
 		}
 
-
-
-
-		//@@@TODO: LATER - Split into:
+		//TODO: LATER - Split into:
 		// #startNewGame() - full reset with new teams  
 		// #loadNewQuestion() - just change puzzle
 		// #resetRound() - reset game state but keep teams
-		//@@@should return true/false: false = fails some validity check
         #startRound({phrase, category, teamNames, wheelSegments}) {
             // Update settings
             if (wheelSegments) {
@@ -916,10 +929,10 @@ class StateVariables {
 			
 			console.log("team names are: ", teamNames);
 
-            //@@@init teams: not the ideal setup
+            //WARNING: init teams: not the ideal setup
             this.#teamManager.initializeTM(teamNames);
 
-            //@@@PUZZLE SETUP: ADD OTHER DATA HERE, EG HINTS
+            //PUZZLE SETUP: ADD OTHER DATA HERE, EG HINTS
             this.#puzzleManager.setPuzzle({phrase, category}); //category is set by the host
 
             // Reset wheel
@@ -955,7 +968,8 @@ class StateVariables {
 
             if (/DOUBLE/i.test(value)) {
                 this.#teamManager.setPendingMultiplier(2);
-                this.#eventSystemGE.emit('gameMessage', 'DOUBLE! Choose a consonant.');
+                this.#eventSystemGE.emit('gameMessage',
+                    `NEXT SPIN = DOUBLE! Choose a ${this.#settings.requireConsonants ? 'consonant' : 'letter'}.`);
                 return (true);
             }
 
@@ -966,7 +980,7 @@ class StateVariables {
                     `Landed on ${points}. Choose a ${this.#settings.requireConsonants ? 'consonant' : 'letter'}.`);
                 return (true);
             }
-
+			console.warn("LOGICAL FLOW ERROR: In #handleWheelResult(), reached end of function without returning");
             this.#teamManager.nextTurn(); //fallback code: should not reach here
 			return (false);
         }
@@ -1041,11 +1055,21 @@ class StateVariables {
             this.#setupEventListenersUI();
             this.#setupButtonHandlers();
             this.#updateInitialDisplay();
-			this.#stateVariablesUI.setInitialPageLoadedState();
 			this.#gameEngine.settings.requireConsonants = $('#requireConsonant').is(':checked');
+			this.#stateVariablesUI.changeState('awaiting_first_question'); //all events should be attached, if not, console will warn
         }
 
         #setupEventListenersUI() {
+			
+			console.log("in setupEventListenersUI: about to add stateChanged event to event system");
+			
+			this.#eventSystemUI.on('stateChanged', () => {
+				const state = this.#gameEngine.stateVariables;
+				$('#spinBtn').prop('disabled', !state.canSpin);
+				$('.key').prop('disabled', !state.canGuessLetters);
+				$('#solveInput, #checkSolveAttemptBtn, #focusSolveWindowBtn').prop('disabled', !state.canSolve);
+			});
+			
             this.#eventSystemUI.on('gameMessage', (message) => {
 				N.toast(message);
             });
@@ -1067,7 +1091,7 @@ class StateVariables {
 					return;
 				}
 				this.#eventSystemUI.emit('gameMessage', 
-					`${team.name}, your turn — spin the wheel!`); //@@@never appears: gets wiped it seems
+					`${team.name}, your turn — spin the wheel!`); //@@@never appears: gets wiped
 				console.log('gameMessage', 
 					`${team.name}, your turn — spin the wheel!`);
 
@@ -1089,24 +1113,18 @@ class StateVariables {
             this.#eventSystemUI.on('confettiBurst', () => {
                 this.#triggerConfetti();
             });
-			
+			this.#eventSystemUI.on('clearConfetti', () => {
+				const canvas = $('#confetti')[0];
+				const ctx = canvas.getContext('2d');
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+			});
 			this.#eventSystemUI.on('ui_puzzleRevealedByGivingUp', () => {
 				this.#eventSystemUI.emit('gameMessage', 'Puzzle revealed. You can start a new round.'); 
-			});
-
-
-			
-			this.#eventSystemUI.on('stateChanged', () => {
-				const state = this.#gameEngine.stateVariables;
-				$('#spinBtn').prop('disabled', !state.canSpin);
-				$('.key').prop('disabled', !state.canGuessLetters);
-				$('#solveInput, #checkSolveAttemptBtn, #focusSolveWindowBtn').prop('disabled', !state.canSolve);
-				//@@@canSolve not working
 			});
         }
 
         #setupButtonHandlers() {
-			//@@@Start button: needs state-driven?
+			//WARNING: not fully state-driven since allows loading teams and wheel segments directly
             $('#startBtn').on('click', () => {
                 const phrase = $('#hostPhrase').val().trim() || this.#gameEngine.settings.defaultPhrase;
                 const category = $('#hostCategory').val().trim();
@@ -1132,16 +1150,20 @@ class StateVariables {
                 $('#solveInput').focus();
             });
 
+			//FIX: SHOULD MAKE ONE METHOD FOR THE TWO EVENTS, OR DIRECT TO SAME #FUNCTION HERE
             $('#checkSolveAttemptBtn').on('click', () => {
-				const guess = $('#solveInput').val();
-				this.#stateVariablesUI.changeState('processing_solve_attempt', {guess});
+				if (this.#stateVariablesUI.canSolve) {
+					const guess = $('#solveInput').val();
+					this.#stateVariablesUI.changeState('processing_solve_attempt', {guess});
+				}
             });
-
             $('#solveInput').on('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    const guess = $('#solveInput').val();
-                    this.#stateVariablesUI.changeState('processing_solve_attempt', {guess});
-                }
+				if (this.#stateVariablesUI.canSolve) {
+					if (e.key === 'Enter') {
+						const guess = $('#solveInput').val();
+						this.#stateVariablesUI.changeState('processing_solve_attempt', {guess});
+					}
+				}
             });
 			
 			// Reveal button (for giving up)
@@ -1166,11 +1188,14 @@ class StateVariables {
             });
         }
 
+		//@@@called only by various events (non-state-change events) for updating letters etc;
+			//the main "workhorse" event "letterGuessLogicUpdated" is in turn called by a state-driven event.
         #renderPuzzle() {
             const $puzzle = $('#puzzle');
             $puzzle.empty();
 
-            const displayState = this.#gameEngine.puzzleManager.getDisplayState();
+            const displayState = this.#gameEngine.puzzleManager.getDisplayState(); //ONLY CALL TO THIS
+								//CURRENT TYPES FOR EACH CHAR: 'space' 'revealed' 'hidden'
 
             // Group by words
             let currentWord = $('<div class="word-group"></div>');
@@ -1209,7 +1234,7 @@ class StateVariables {
         }
         
         #triggerConfetti() {
-            const confetti = document.getElementById('confetti'); //@@@make jquery
+			const confetti = $('#confetti')[0];
             const ctx = confetti.getContext('2d');
             const w = confetti.width = window.innerWidth;
             const h = confetti.height = window.innerHeight;
@@ -1247,11 +1272,10 @@ class StateVariables {
             $('#hostSegments').val(this.#gameEngine.settings.wheelSegments.join(','));
             
             // Disable interactions initially
-			// @@@should also disable keyboard here, not in keybaord manager, or wherever this is done?
-            $('#spinBtn').prop('disabled', true);
-            $('#checkSolveAttemptBtn').prop('disabled', true);
-            $('#focusSolveWindowBtn').prop('disabled', true);
-			console.log("updateInitialDisplay(): should have deactivated solve btn");
+			//now handled by a state-change at start of page load, after attaching event listeners
+            //$('#spinBtn').prop('disabled', true);
+            //$('#checkSolveAttemptBtn').prop('disabled', true);
+            //$('#focusSolveWindowBtn').prop('disabled', true);
         }
     }
 

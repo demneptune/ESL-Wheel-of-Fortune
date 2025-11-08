@@ -60,9 +60,6 @@ header{
 }
 
 
-
-
-
 .grid {
     display: flex;
     flex-direction: column;
@@ -157,10 +154,6 @@ header{
 
 
 
-
-
-
-
 .spinBtn{
 	appearance:none; 
 	border:none; 
@@ -216,22 +209,32 @@ header{
   text-shadow: 0 1px 2px rgba(0,0,0,0.5);
   box-shadow: 0 4px 8px rgba(0,0,0,0.3);
 }
-.tile.blank{
-  opacity: 0.3;
-  background: #0f1a30;
-  border-color: #1a2642;
-}
 .tile.space{
   background: transparent;
   border-color: transparent;
   box-shadow: none;
   min-width: 20px;
 }
-.tile.shown {
+
+
+.tile.blank, .tile.hidden{
+  opacity: 0.3;
+  background: #0f1a30;
+  border-color: #1a2642;
+}
+
+.tile.shown, .tile.revealed {
   background: linear-gradient(135deg, #1e3a8a, #3730a3);
   border-color: #4f46e5;
   color: #f0f9ff;
 }
+
+.tile.punctuation {
+  background: linear-gradient(135deg, #1e3a8a, #3730a3);
+  border-color: #4f46e5;
+  color: #f0f9ff;
+}
+
 
 /* Keyboard - IMPROVED VISIBILITY */
 .keyboard{

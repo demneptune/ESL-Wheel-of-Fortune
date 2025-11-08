@@ -48,7 +48,7 @@ window.sampleQuestions = [
     },
     {
         id: "proverb_0004",
-        phrase: "DONT COUNT YOUR CHICKENS BEFORE THEY HATCH",
+        phrase: "DON'T COUNT YOUR CHICKENS BEFORE THEY HATCH",
         category: "proverb",
         display_category: "Proverb",
         difficulty: "medium",
@@ -129,7 +129,7 @@ window.sampleQuestions = [
     },
     {
         id: "proverb_0013",
-        phrase: "DONT JUDGE A BOOK BY ITS COVER",
+        phrase: "DON'T JUDGE A BOOK BY ITS COVER",
         category: "proverb",
         display_category: "Proverb",
         difficulty: "medium",
@@ -174,7 +174,7 @@ window.sampleQuestions = [
     },
     {
         id: "proverb_0018",
-        phrase: "YOU CANT HAVE YOUR CAKE AND EAT IT",
+        phrase: "YOU CAN'T HAVE YOUR CAKE AND EAT IT",
         category: "proverb",
         display_category: "Proverb",
         difficulty: "hard",
@@ -264,6 +264,24 @@ window.sampleQuestions = [
         tags: ["secret", "information"],
         hint: "To reveal secret information"
     },
+	{
+		id: "idiom_0008",
+		phrase: "TO LET THE CAT OUT OF THE BAG",
+		category: "expression",
+		display_category: "Expression",
+		difficulty: "medium",
+		tags: ["secret", "reveal"],
+		hint: "To reveal a secret accidentally"
+	},
+	{
+		id: "idiom_0009",
+		phrase: "TO BE UNDER THE WEATHER",
+		category: "expression",
+		display_category: "Expression",
+		difficulty: "easy",
+		tags: ["health", "feeling"],
+		hint: "Feeling ill or sick"
+	},
 
     // PHRASES (8 items)
     {
@@ -277,7 +295,7 @@ window.sampleQuestions = [
     },
     {
         id: "phrase_0002",
-        phrase: "HOW ARE YOU DOING",
+        phrase: "HOW ARE YOU DOING?",
         category: "phrase",
         display_category: "Common Phrase",
         difficulty: "easy",
@@ -304,6 +322,7 @@ window.sampleQuestions = [
         tags: ["money", "attitude"],
         hint: "Things gotten easily are often lost easily"
     },
+
 
     // MOVIES (10 items)
     {
